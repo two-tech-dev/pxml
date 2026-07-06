@@ -44,7 +44,7 @@ program
     <meta>
       <path>package.json</path>
     </meta>
-    <constraint verify="static">Initialize Next.js app in the current directory non-interactively. Run: npx create-next-app@latest . --typescript --eslint --tailwind --app --no-src-dir --import-alias "@/*" --use-npm --yes</constraint>
+    <constraint verify="static">Initialize Next.js app in the current directory non-interactively. Run: npx create-next-app@latest . --typescript --eslint --tailwind --app --no-src-dir --import-alias "@/*" --use-npm --yes && npm install better-sqlite3 && npm install --save-dev @types/better-sqlite3</constraint>
   </node>
 
   <node id="ui.home" type="ui-component" flow="navigation">
@@ -70,7 +70,7 @@ program
     <output>
       <field name="success" type="boolean" required="true" />
     </output>
-    <constraint verify="static">Title must not be empty</constraint>
+    <constraint verify="static">Initialize a better-sqlite3 database named 'blog.db'. Create a 'posts' table with columns id (INTEGER PRIMARY KEY), title (TEXT), and content (TEXT) if it does not exist. Implement both POST (to insert a post) and GET (to select all posts) handlers in this route file.</constraint>
     <test>
       <name>Create post successful</name>
       <given>
@@ -94,7 +94,7 @@ program
     <input>
       <field name="searchParams" type="object" required="false" />
     </input>
-    <constraint verify="static">Create a beautifully designed blog posts manager page at app/posts/page.tsx (clean layout, dark/modern look, clean tailwind spacing, cards, and input styling). Include a list of posts (use dummy posts state), a form to submit a new post using the api.posts.create endpoint via fetch (use POST request), and an interactive success state notification.</constraint>
+    <constraint verify="static">Create a beautifully designed blog posts manager page at app/posts/page.tsx (clean dark layout, tailwind cards, inputs, and buttons). It must fetch posts from '/api/posts' on render/mount, display them, and show a form to submit new posts via a POST request to '/api/posts'. Refresh the posts list automatically on successful submission.</constraint>
   </node>
 </project>`;
 
