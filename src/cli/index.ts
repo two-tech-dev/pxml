@@ -21,7 +21,7 @@ program
 
 program
   .command('init')
-  .description('Initialize Next.js project and sample pxml project structure')
+  .description('Initialize sample pxml project structure')
   .action(() => {
     const cwd = process.cwd();
     const configPath = path.join(cwd, 'project.xml');
@@ -29,13 +29,6 @@ program
     if (fs.existsSync(configPath)) {
       console.log('Project already initialized.');
       return;
-    }
-
-    console.log('Initializing Next.js project structure using create-next-app...');
-    try {
-      execSync('npx create-next-app@latest . --typescript --eslint --tailwind --app --no-src-dir --import-alias "@/*" --use-npm --yes', { stdio: 'inherit', cwd });
-    } catch (err: any) {
-      console.error(`Warning: Next.js initialization returned an error (it might be because the folder already has files). Continuing to write XML templates.`);
     }
 
     // Create example directory structure for flows
@@ -46,6 +39,13 @@ program
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="pxml.xsd">
   <import src="./flows/blog.xml" as="blog" />
+
+  <node id="setup.nextjs" type="setup-command" flow="setup">
+    <meta>
+      <path>package.json</path>
+    </meta>
+    <constraint verify="static">Initialize Next.js app in the current directory non-interactively. Run: npx create-next-app@latest . --typescript --eslint --tailwind --app --no-src-dir --import-alias "@/*" --use-npm --yes</constraint>
+  </node>
 </project>`;
 
     const blogXml = `<project name="blog-flow" stack="nextjs" version="0.1.0"
