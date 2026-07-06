@@ -46,6 +46,14 @@ program
     </meta>
     <constraint verify="static">Initialize Next.js app in the current directory non-interactively. Run: npx create-next-app@latest . --typescript --eslint --tailwind --app --no-src-dir --import-alias "@/*" --use-npm --yes</constraint>
   </node>
+
+  <node id="ui.home" type="ui-component" flow="navigation">
+    <meta>
+      <path>app/page.tsx</path>
+      <depends_on>setup.nextjs</depends_on>
+    </meta>
+    <constraint verify="static">Create a home landing page. Add a visible links or buttons pointing to the /posts page</constraint>
+  </node>
 </project>`;
 
     const blogXml = `<project name="blog-flow" stack="nextjs" version="0.1.0"
