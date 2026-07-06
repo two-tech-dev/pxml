@@ -8,6 +8,7 @@ import { PxmlCodegen } from '../codegen/index.js';
 import { PxmlRunner } from '../runner/index.js';
 import { FileWriter } from '../writer/index.js';
 import { runFixLoop } from './fix.js';
+import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -20,7 +21,7 @@ program
 
 program
   .command('init')
-  .description('Initialize sample pxml project structure')
+  .description('Initialize Next.js project and sample pxml project structure')
   .action(() => {
     const cwd = process.cwd();
     const configPath = path.join(cwd, 'project.xml');
@@ -30,7 +31,14 @@ program
       return;
     }
 
-    // Create example directory structure
+    console.log('Initializing Next.js project structure using create-next-app...');
+    try {
+      execSync('npx create-next-app@latest . --typescript --eslint --tailwind --app --no-src-dir --import-alias "@/*" --use-npm --yes', { stdio: 'inherit', cwd });
+    } catch (err: any) {
+      console.error(`Warning: Next.js initialization returned an error (it might be because the folder already has files). Continuing to write XML templates.`);
+    }
+
+    // Create example directory structure for flows
     fs.mkdirSync(path.join(cwd, 'flows'), { recursive: true });
     fs.mkdirSync(path.join(cwd, 'shared'), { recursive: true });
 
@@ -38,35 +46,6 @@ program
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="pxml.xsd">
   <import src="./flows/blog.xml" as="blog" />
-
-  <node id="config.package" type="config-file" flow="setup">
-    <meta>
-      <path>package.json</path>
-    </meta>
-    <constraint verify="static">Must include next, react, react-dom, and typescript devDependencies</constraint>
-  </node>
-
-  <node id="config.tsconfig" type="config-file" flow="setup">
-    <meta>
-      <path>tsconfig.json</path>
-    </meta>
-    <constraint verify="static">Must support Next.js recommended tsconfig options</constraint>
-  </node>
-
-  <node id="config.next" type="config-file" flow="setup">
-    <meta>
-      <path>next.config.js</path>
-    </meta>
-    <constraint verify="static">Must export standard nextjs configuration object</constraint>
-  </node>
-
-  <node id="setup.install" type="setup-command" flow="setup">
-    <meta>
-      <path>package.json</path>
-      <depends_on>config.package</depends_on>
-    </meta>
-    <constraint verify="static">Execute npm install to setup node modules</constraint>
-  </node>
 </project>`;
 
     const blogXml = `<project name="blog-flow" stack="nextjs" version="0.1.0"
@@ -100,16 +79,13 @@ program
   </node>
 </project>`;
 
-    // Copy pxml.xsd to the initialized project directory if it exists
     const fileUrl = new URL(import.meta.url);
     const sourceXsd = path.resolve(path.dirname(fileUrl.pathname), '../../pxml.xsd');
     if (fs.existsSync(sourceXsd)) {
       fs.copyFileSync(sourceXsd, path.join(cwd, 'pxml.xsd'));
     } else {
-      // Fallback fallback to relative check from process cwd if launched via npm run cli
       const fallbackXsd = path.resolve(cwd, 'pxml.xsd');
       if (!fs.existsSync(fallbackXsd)) {
-        // Find pxml.xsd relative to global workspace if present
         const workspaceXsd = path.resolve(path.dirname(fileUrl.pathname), '../../../pxml.xsd');
         if (fs.existsSync(workspaceXsd)) {
           fs.copyFileSync(workspaceXsd, path.join(cwd, 'pxml.xsd'));
@@ -119,7 +95,7 @@ program
 
     fs.writeFileSync(configPath, mainXml, 'utf-8');
     fs.writeFileSync(path.join(cwd, 'flows', 'blog.xml'), blogXml, 'utf-8');
-    console.log('Successfully initialized sample pxml project structure.');
+    console.log('Successfully initialized Next.js project with pxml templates.');
   });
 
 program
