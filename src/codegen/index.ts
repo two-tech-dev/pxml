@@ -204,7 +204,44 @@ Generate ONLY the single-line shell command. Do not include explanation, comment
       const commandText = (await this.provider.generate(prompt, systemPrompt, this.config.model)).trim();
       
       console.log(`[SETUP-COMMAND] Executing command: "${commandText}"`);
-      execSync(commandText, { stdio: 'inherit', cwd: process.cwd() });
+
+      // Conflict avoidance workaround for npx create-next-app .
+      const isCreateNextApp = commandText.includes('create-next-app');
+      const tempDir = path.join('/tmp', 'pxml-temp-init');
+      const conflictItems = ['project.xml', 'pxml.xsd', 'flows', 'shared', '.pxml'];
+      const movedItems: { src: string; dest: string }[] = [];
+
+      if (isCreateNextApp) {
+        if (!fs.existsSync(tempDir)) {
+          fs.mkdirSync(tempDir, { recursive: true });
+        }
+        for (const item of conflictItems) {
+          const itemPath = path.join(process.cwd(), item);
+          if (fs.existsSync(itemPath)) {
+            const destPath = path.join(tempDir, item);
+            if (fs.existsSync(destPath)) {
+              fs.rmSync(destPath, { recursive: true, force: true });
+            }
+            fs.renameSync(itemPath, destPath);
+            movedItems.push({ src: destPath, dest: itemPath });
+          }
+        }
+      }
+
+      try {
+        execSync(commandText, { stdio: 'inherit', cwd: process.cwd() });
+      } finally {
+        // Restore moved files
+        if (isCreateNextApp) {
+          for (const item of movedItems) {
+            if (fs.existsSync(item.src)) {
+              fs.renameSync(item.src, item.dest);
+            }
+          }
+          fs.rmSync(tempDir, { recursive: true, force: true });
+        }
+      }
+
       return commandText;
     }
 
