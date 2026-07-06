@@ -38,7 +38,7 @@ export const TestCaseSchema = z.object({
 
 export const NodeSchema = z.object({
   id: z.string(),
-  type: z.enum(['api-route', 'ui-component', 'db-model', 'middleware']), // EXTENSION POINT: Add custom node types here
+  type: z.enum(['api-route', 'ui-component', 'db-model', 'middleware', 'config-file']), // EXTENSION POINT: Add custom node types here
   flow: z.string(),
   extends: z.string().optional(),
   meta: MetaSchema,

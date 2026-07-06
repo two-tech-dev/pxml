@@ -38,6 +38,27 @@ program
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="pxml.xsd">
   <import src="./flows/blog.xml" as="blog" />
+
+  <node id="config.package" type="config-file" flow="setup">
+    <meta>
+      <path>package.json</path>
+    </meta>
+    <constraint verify="static">Must include next, react, react-dom, and devDependencies for typescript</constraint>
+  </node>
+
+  <node id="config.tsconfig" type="config-file" flow="setup">
+    <meta>
+      <path>tsconfig.json</path>
+    </meta>
+    <constraint verify="static">Must support Next.js recommended tsconfig options</constraint>
+  </node>
+
+  <node id="config.next" type="config-file" flow="setup">
+    <meta>
+      <path>next.config.js</path>
+    </meta>
+    <constraint verify="static">Must export standard nextjs configuration object</constraint>
+  </node>
 </project>`;
 
     const blogXml = `<project name="blog-flow" stack="nextjs" version="0.1.0"

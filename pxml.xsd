@@ -91,6 +91,7 @@
                   <xs:enumeration value="ui-component"/>
                   <xs:enumeration value="db-model"/>
                   <xs:enumeration value="middleware"/>
+                  <xs:enumeration value="config-file"/>
                 </xs:restriction>
               </xs:simpleType>
             </xs:attribute>
