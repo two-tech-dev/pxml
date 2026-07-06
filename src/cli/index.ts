@@ -113,7 +113,21 @@ program
       }
     }
 
-    const bugsHistoryXml = `<bugs>
+    const sourceBugsXsd = path.resolve(path.dirname(fileUrl.pathname), '../../bugs.xsd');
+    if (fs.existsSync(sourceBugsXsd)) {
+      fs.copyFileSync(sourceBugsXsd, path.join(cwd, 'bugs.xsd'));
+    } else {
+      const fallbackBugsXsd = path.resolve(cwd, 'bugs.xsd');
+      if (!fs.existsSync(fallbackBugsXsd)) {
+        const workspaceBugsXsd = path.resolve(path.dirname(fileUrl.pathname), '../../../bugs.xsd');
+        if (fs.existsSync(workspaceBugsXsd)) {
+          fs.copyFileSync(workspaceBugsXsd, path.join(cwd, 'bugs.xsd'));
+        }
+      }
+    }
+
+    const bugsHistoryXml = `<bugs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="bugs.xsd">
   <bug id="db.locking" flow="blog.write">
     SQLite database file locks when executing parallel write operations. Ensure connections are closed properly or run db queries sequentially.
   </bug>

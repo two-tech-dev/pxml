@@ -50,9 +50,12 @@ pxml fix --flow=blog.write --provider ollama --model llama3 --baseUrl http://loc
 This formulates a minimal context patch prompt and retries local SEARCH/REPLACE edits up to 3 times.
 
 #### Regression Prevention via `bugs_history.xml`
-You can document persistent bugs in `bugs_history.xml`. When you run `pxml fix`, the compiler automatically aggregates these descriptions and feeds them to the AI to prevent code regressions:
+You can document persistent bugs in `bugs_history.xml`. When you run `pxml fix`, the compiler automatically aggregates these descriptions and feeds them to the AI to prevent code regressions. 
+
+To enable editor validation and autocomplete, link your `bugs_history.xml` file to the provided `bugs.xsd` schema:
 ```xml
-<bugs>
+<bugs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="bugs.xsd">
   <bug id="cart.badge" flow="cart.view">
     Cart badge count displays 0 despite items being in the shopping cart database. Always fetch active cart status from the backend database route instead of localStorage.
   </bug>
