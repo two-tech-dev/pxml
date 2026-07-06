@@ -1,0 +1,32 @@
+<project name="cart-flow" stack="nextjs" version="0.1.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="../pxml.xsd">
+
+  <node id="api.cart" type="api-route" flow="cart.manage">
+    <meta>
+      <path>app/api/cart/route.ts</path>
+    </meta>
+    <constraint verify="static">Initialize the better-sqlite3 database 'shop.db'. Create a 'cart' table with columns id (INTEGER PRIMARY KEY), productId (INTEGER), quantity (INTEGER). If it is a POST request, insert/increment item quantity in the cart. If it is a GET request, select and return all items in the cart joined with product details from the 'products' table. If it is a DELETE request, clear/empty the cart table.</constraint>
+    <test>
+      <name>Add item to cart successful</name>
+      <given>
+        <body json="true">
+          <productId>1</productId>
+          <quantity>1</quantity>
+        </body>
+      </given>
+      <expect>
+        <status>200</status>
+      </expect>
+    </test>
+  </node>
+
+  <node id="ui.cart" type="ui-component" flow="cart.view">
+    <meta>
+      <path>app/cart/page.tsx</path>
+      <depends_on>api.cart</depends_on>
+    </meta>
+    <constraint verify="static">Create a shopping cart summary page at app/cart/page.tsx (modern Tailwind layout, dark/card dashboard design). Fetch cart items from '/api/cart' on mount, compute total cart price, display items in list, and show a 'Clear Cart' button calling DELETE to '/api/cart' and a mock 'Proceed to Checkout' button showing a success message. Link back to '/products'.</constraint>
+  </node>
+
+</project>
