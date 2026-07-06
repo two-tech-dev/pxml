@@ -52,7 +52,7 @@ program
       <path>app/page.tsx</path>
       <depends_on>setup.nextjs</depends_on>
     </meta>
-    <constraint verify="static">Create the Next.js index homepage at app/page.tsx. Add visible links or buttons pointing to the /posts page</constraint>
+    <constraint verify="static">Replace the entire homepage with a beautifully styled landing page (clean dark theme, tailwind classes). Do not call any dashboard APIs like /api/network or /api/ram. Show a hero section, and a prominent link/button pointing to the Posts page at '/posts'.</constraint>
   </node>
 </project>`;
 
@@ -94,7 +94,7 @@ program
     <input>
       <field name="searchParams" type="object" required="false" />
     </input>
-    <constraint verify="static">Show a list of blog posts and a form to submit a new post using the api.posts.create route</constraint>
+    <constraint verify="static">Create a beautifully designed blog posts manager page at app/posts/page.tsx (clean layout, dark/modern look, clean tailwind spacing, cards, and input styling). Include a list of posts (use dummy posts state), a form to submit a new post using the api.posts.create endpoint via fetch (use POST request), and an interactive success state notification.</constraint>
   </node>
 </project>`;
 
