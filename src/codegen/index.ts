@@ -175,6 +175,13 @@ export class PxmlCodegen {
     }
   }
 
+  async generateDirect(prompt: string, systemPrompt: string): Promise<string> {
+    if (!this.provider) {
+      throw new Error(`AI Provider is not configured.`);
+    }
+    return this.provider.generate(prompt, systemPrompt, this.config.model);
+  }
+
   async generateNodeCode(node: Node, projectContext: string, writer: FileWriter): Promise<string> {
     if (node.type === 'setup-command') {
       if (this.config.mockResponse) {

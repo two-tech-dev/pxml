@@ -14,7 +14,8 @@ export async function runFixLoop(
   codegen: PxmlCodegen,
   runner: PxmlRunner,
   writer: FileWriter,
-  mockFixResponse?: string
+  mockFixResponse?: string,
+  bugContext?: string
 ): Promise<boolean> {
   const maxRetries = 3;
   let attempt = 0;
@@ -52,7 +53,8 @@ export async function runFixLoop(
     console.log(`[FIX] Failed test cases: ${failedCases.join(', ')}`);
 
     // 2. Formulate minimal fix-prompt
-    const patchPrompt = `You are a software repair AI. The following code for node '${node.id}' has failed tests:
+    const patchPrompt = `You are a software repair AI. The following code for node '${node.id}' has issues.
+${bugContext ? `Raw Bug Context / Error Logs:\n${bugContext}\n` : ''}
 Path: ${node.meta.path}
 Failed Cases: ${failedCases.join(', ')}
 Node XML spec:
@@ -77,24 +79,10 @@ Generate a SEARCH/REPLACE block to patch the code and fix the failures. Format:
     if (mockFixResponse) {
       patch = mockFixResponse;
     } else {
-      // In production, we call the codegen client message creation directly.
-      // For this step, we will call our codegen client if configured, otherwise fallback to mock
-      // to avoid crash.
       try {
-        const client = (codegen as any).client;
-        if (client) {
-          const response = await client.messages.create({
-            model: (codegen as any).config.model,
-            max_tokens: 2000,
-            system: "Generate only SEARCH/REPLACE patch block.",
-            messages: [{ role: 'user', content: patchPrompt }]
-          });
-          patch = response.content[0].type === 'text' ? response.content[0].text : '';
-        } else {
-          throw new Error('AI Client not configured for fix.');
-        }
+        patch = await codegen.generateDirect(patchPrompt, "Generate only SEARCH/REPLACE patch block.");
       } catch (err: any) {
-        console.error(`[FIX] AI call failed: ${err.message}. Escolating to user.`);
+        console.error(`[FIX] AI call failed: ${err.message}. Escalating to user.`);
         return false;
       }
     }

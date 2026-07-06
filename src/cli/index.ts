@@ -277,6 +277,7 @@ program
   .description('Invoke self-healing loop for failed nodes')
   .option('--flow <flowName>', 'Fix specific flow')
   .option('--node <nodeId>', 'Fix specific node')
+  .option('--bug <bugLogOrText>', 'Path to raw error log or custom description text to aid the fix loop')
   .option('--provider <provider>', 'AI Provider (anthropic, openai, or ollama)', 'anthropic')
   .option('--apiKey <key>', 'API key')
   .option('--baseUrl <url>', 'Base API URL for OpenAI compatible provider')
@@ -311,12 +312,21 @@ program
       targetNodes = targetNodes.filter(n => n.flow === options.flow);
     }
 
+    let bugContext = '';
+    if (options.bug) {
+      if (fs.existsSync(options.bug)) {
+        bugContext = fs.readFileSync(options.bug, 'utf-8');
+      } else {
+        bugContext = options.bug;
+      }
+    }
+
     for (const node of targetNodes) {
       // Check if node is failing tests
       console.log(`[FIX] Verifying node: ${node.id}`);
       const testRes = runner.runNodeTests(node);
-      if (!testRes.passed) {
-        const success = await runFixLoop(node, cwd, manifest, codegen, runner, writer);
+      if (!testRes.passed || bugContext) {
+        const success = await runFixLoop(node, cwd, manifest, codegen, runner, writer, undefined, bugContext);
         if (success) {
           console.log(`[FIX] Node ${node.id} healed successfully.`);
         } else {
