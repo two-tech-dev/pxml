@@ -52,7 +52,7 @@ program
       <path>app/page.tsx</path>
       <depends_on>setup.nextjs</depends_on>
     </meta>
-    <constraint verify="static">Create a home landing page. Add a visible links or buttons pointing to the /posts page</constraint>
+    <constraint verify="static">Create the Next.js index homepage at app/page.tsx. Add visible links or buttons pointing to the /posts page</constraint>
   </node>
 </project>`;
 

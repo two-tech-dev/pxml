@@ -282,7 +282,7 @@ Generate implementation file for this node:
 - Constraints:
 ${node.constraints.map(c => `  - [${c.verify}] ${c.description}`).join('\n')}
 
-Note: The index homepage of the Next.js app is located at 'app/page.tsx'. Generate the cleanest code matching this specification. Do not include markdown wrapping or explanation.`;
+Generate the cleanest code matching this specification. Do not include markdown wrapping or explanation.`;
   }
 
   private cleanMarkdown(code: string): string {
