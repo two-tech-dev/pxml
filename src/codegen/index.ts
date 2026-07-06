@@ -36,30 +36,53 @@ export class OpenAICompatibleProvider implements AIProvider {
   }
 
   async generate(prompt: string, systemPrompt: string, model: string): Promise<string> {
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.2,
-        stream: false
-      })
-    });
+    const maxRetries = 3;
+    let attempt = 0;
 
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`OpenAI Provider HTTP error! status: ${response.status}, details: ${errText}`);
+    while (attempt < maxRetries) {
+      attempt++;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 seconds timeout
+
+      try {
+        const response = await fetch(`${this.baseUrl}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: prompt }
+            ],
+            temperature: 0.2,
+            stream: false
+          }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`OpenAI Provider HTTP error! status: ${response.status}, details: ${errText}`);
+        }
+
+        const data = await response.json() as any;
+        return data.choices?.[0]?.message?.content || '';
+      } catch (err: any) {
+        clearTimeout(timeoutId);
+        if (attempt >= maxRetries) {
+          throw new Error(`OpenAI API request failed after ${maxRetries} attempts: ${err.message}`);
+        }
+        console.warn(`[API WARN] Attempt ${attempt} failed: ${err.message}. Retrying...`);
+        // Backoff delay
+        await new Promise(res => setTimeout(res, 2000 * attempt));
+      }
     }
-
-    const data = await response.json() as any;
-    return data.choices?.[0]?.message?.content || '';
+    throw new Error('OpenAI API request failed.');
   }
 }
 
@@ -71,28 +94,50 @@ export class OllamaProvider implements AIProvider {
   }
 
   async generate(prompt: string, systemPrompt: string, model: string): Promise<string> {
-    const response = await fetch(`${this.baseUrl}/api/generate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model,
-        prompt: `${systemPrompt}\n\nUser specifications:\n${prompt}`,
-        stream: false,
-        options: {
-          temperature: 0.2
+    const maxRetries = 3;
+    let attempt = 0;
+
+    while (attempt < maxRetries) {
+      attempt++;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 seconds timeout
+
+      try {
+        const response = await fetch(`${this.baseUrl}/api/generate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model,
+            prompt: `${systemPrompt}\n\nUser specifications:\n${prompt}`,
+            stream: false,
+            options: {
+              temperature: 0.2
+            }
+          }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`Ollama Provider HTTP error! status: ${response.status}, details: ${errText}`);
         }
-      })
-    });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Ollama Provider HTTP error! status: ${response.status}, details: ${errText}`);
+        const data = await response.json() as any;
+        return data.response || '';
+      } catch (err: any) {
+        clearTimeout(timeoutId);
+        if (attempt >= maxRetries) {
+          throw new Error(`Ollama API request failed after ${maxRetries} attempts: ${err.message}`);
+        }
+        console.warn(`[OLLAMA WARN] Attempt ${attempt} failed: ${err.message}. Retrying...`);
+        await new Promise(res => setTimeout(res, 2000 * attempt));
+      }
     }
-
-    const data = await response.json() as any;
-    return data.response || '';
+    throw new Error('Ollama API request failed.');
   }
 }
 
