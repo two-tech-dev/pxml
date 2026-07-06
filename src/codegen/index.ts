@@ -286,7 +286,11 @@ Generate the cleanest code matching this specification. Do not include markdown 
   }
 
   private cleanMarkdown(code: string): string {
-    return code.replace(/^```[a-zA-Z]*\n/, '').replace(/\n```$/, '').trim();
+    let cleaned = code.replace(/^```[a-zA-Z]*\n/, '').replace(/\n```$/, '').trim();
+    // Remove any trailing AI skipped pattern comment or annotation
+    cleaned = cleaned.replace(/\s*→\s*skipped:.*$/gm, '');
+    cleaned = cleaned.replace(/\s*\/\/\s*skipped:.*$/gm, '');
+    return cleaned.trim();
   }
 
   private logAIResponse(nodeId: string, prompt: string, response: string) {

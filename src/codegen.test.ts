@@ -69,4 +69,13 @@ describe('PxmlCodegen & FileWriter', () => {
     writer.rollback();
     expect(fs.readFileSync(testFile, 'utf-8')).toBe('original content');
   });
+
+  it('should clean trailing annotation comments successfully', () => {
+    const codegen = new PxmlCodegen({
+      model: 'claude-3-5-sonnet',
+      mockResponse: () => 'const a = 1;\n\n// skipped: database setup, add when schema is defined.'
+    });
+    const cleaned = (codegen as any).cleanMarkdown('const a = 1;\n\n→ skipped: database setup, add when schema is defined.');
+    expect(cleaned).toBe('const a = 1;');
+  });
 });
