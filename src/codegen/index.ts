@@ -265,7 +265,8 @@ Generate ONLY the single-line shell command. Do not include explanation, comment
 
     const prompt = this.buildPrompt(node, projectContext);
     const systemPrompt = `You are an expert software engineer generating implementation code for a node specification.
-Generate ONLY the file contents. Do not include markdown code block syntax (like \`\`\`typescript) or explanations. Only output code.`;
+Generate ONLY the file contents. Do not include markdown code block syntax (like \`\`\`typescript) or explanations. Only output code.
+CRITICAL: The codebase uses ES Modules (ESM). You must STRICTLY use 'import ... from ...' syntax. NEVER generate CommonJS 'require(...)' calls.`;
     
     const code = await this.provider.generate(prompt, systemPrompt, this.config.model);
     let cleanedCode = this.cleanMarkdown(code);
