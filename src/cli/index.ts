@@ -9,6 +9,7 @@ import { PxmlRunner } from '../runner/index.js';
 import { FileWriter } from '../writer/index.js';
 import { runFixLoop } from './fix.js';
 import { execSync } from 'child_process';
+import { XMLParser } from 'fast-xml-parser';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -352,7 +353,7 @@ program
           allowBooleanAttributes: true,
           parseAttributeValue: true,
         };
-        const fastXml = new (require('fast-xml-parser').XMLParser)(optionsXml);
+        const fastXml = new XMLParser(optionsXml);
         const parsed = fastXml.parse(historyXml);
         if (parsed.bugs && parsed.bugs.bug) {
           const rawBugs = Array.isArray(parsed.bugs.bug) ? parsed.bugs.bug : [parsed.bugs.bug];
