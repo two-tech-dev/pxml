@@ -1,0 +1,41 @@
+<project name="blog-flow" stack="nextjs" version="0.1.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="../pxml.xsd">
+  <node id="api.posts.create" type="api-route" flow="blog.write">
+    <meta>
+      <path>app/api/posts/route.ts</path>
+    </meta>
+    <input>
+      <field name="title" type="string" required="true" />
+      <field name="content" type="string" required="true" />
+    </input>
+    <output>
+      <field name="success" type="boolean" required="true" />
+    </output>
+    <constraint verify="static">Initialize a better-sqlite3 database named 'blog.db'. Create a 'posts' table with columns id (INTEGER PRIMARY KEY), title (TEXT), and content (TEXT) if it does not exist. Implement both POST (to insert a post) and GET (to select all posts) handlers in this route file.</constraint>
+    <test>
+      <name>Create post successful</name>
+      <given>
+        <body json="true">
+          <title>Hello World</title>
+          <content>My first post</content>
+        </body>
+      </given>
+      <expect>
+        <status>200</status>
+        <contains>success</contains>
+      </expect>
+    </test>
+  </node>
+
+  <node id="ui.posts.page" type="ui-component" flow="blog.read">
+    <meta>
+      <path>app/posts/page.tsx</path>
+      <depends_on>api.posts.create</depends_on>
+    </meta>
+    <input>
+      <field name="searchParams" type="object" required="false" />
+    </input>
+    <constraint verify="static">Create a beautifully designed blog posts manager page at app/posts/page.tsx (clean dark layout, tailwind cards, inputs, and buttons). It must fetch posts from '/api/posts' on render/mount, display them, and show a form to submit new posts via a POST request to '/api/posts'. Refresh the posts list automatically on successful submission.</constraint>
+  </node>
+</project>
