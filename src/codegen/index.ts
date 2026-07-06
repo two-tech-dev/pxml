@@ -61,8 +61,41 @@ export class OpenAICompatibleProvider implements AIProvider {
   }
 }
 
+export class OllamaProvider implements AIProvider {
+  private baseUrl: string;
+
+  constructor(baseUrl = 'http://localhost:11434') {
+    this.baseUrl = baseUrl;
+  }
+
+  async generate(prompt: string, systemPrompt: string, model: string): Promise<string> {
+    const response = await fetch(`${this.baseUrl}/api/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model,
+        prompt: `${systemPrompt}\n\nUser specifications:\n${prompt}`,
+        stream: false,
+        options: {
+          temperature: 0.2
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Ollama Provider HTTP error! status: ${response.status}, details: ${errText}`);
+    }
+
+    const data = await response.json() as any;
+    return data.response || '';
+  }
+}
+
 export interface CodegenConfig {
-  provider?: 'anthropic' | 'openai' | 'custom';
+  provider?: 'anthropic' | 'openai' | 'ollama' | 'custom';
   apiKey?: string;
   model: string;
   baseUrl?: string;
@@ -86,6 +119,8 @@ export class PxmlCodegen {
     } else if (config.provider === 'openai') {
       if (!config.apiKey) throw new Error('API Key required for OpenAI provider');
       this.provider = new OpenAICompatibleProvider(config.apiKey, config.baseUrl);
+    } else if (config.provider === 'ollama') {
+      this.provider = new OllamaProvider(config.baseUrl);
     } else {
       // Default to anthropic
       if (!config.apiKey) throw new Error('API Key required for Anthropic provider');

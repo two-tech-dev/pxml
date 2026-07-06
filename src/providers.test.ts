@@ -39,4 +39,14 @@ describe('Multi-provider configuration', () => {
     const code = await codegen.generateNodeCode(mockNode, 'Context Info', writer);
     expect(code).toBe('// custom generated code using model my-custom-model');
   });
+
+  it('should support ollama provider configuration', () => {
+    const codegen = new PxmlCodegen({
+      provider: 'ollama',
+      model: 'llama3',
+      baseUrl: 'http://localhost:11434'
+    });
+    expect((codegen as any).provider).toBeDefined();
+    expect((codegen as any).provider.baseUrl).toBe('http://localhost:11434');
+  });
 });
