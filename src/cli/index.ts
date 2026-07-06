@@ -39,11 +39,33 @@ program
          xsi:noNamespaceSchemaLocation="pxml.xsd">
   <import src="./flows/blog.xml" as="blog" />
 
-  <node id="setup.nextjs" type="setup-command" flow="setup">
+  <node id="config.package" type="config-file" flow="setup">
     <meta>
       <path>package.json</path>
     </meta>
-    <constraint verify="static">Initialize a Next.js TypeScript app in the current directory. Use npx create-next-app --typescript --eslint --tailwind --app --no-src-dir --import-alias "@/*" --use-npm --yes .</constraint>
+    <constraint verify="static">Must include next, react, react-dom, and typescript devDependencies</constraint>
+  </node>
+
+  <node id="config.tsconfig" type="config-file" flow="setup">
+    <meta>
+      <path>tsconfig.json</path>
+    </meta>
+    <constraint verify="static">Must support Next.js recommended tsconfig options</constraint>
+  </node>
+
+  <node id="config.next" type="config-file" flow="setup">
+    <meta>
+      <path>next.config.js</path>
+    </meta>
+    <constraint verify="static">Must export standard nextjs configuration object</constraint>
+  </node>
+
+  <node id="setup.install" type="setup-command" flow="setup">
+    <meta>
+      <path>package.json</path>
+      <depends_on>config.package</depends_on>
+    </meta>
+    <constraint verify="static">Execute npm install to setup node modules</constraint>
   </node>
 </project>`;
 
