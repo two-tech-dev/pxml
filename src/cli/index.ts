@@ -77,6 +77,17 @@ program
       </expect>
     </test>
   </node>
+
+  <node id="ui.posts.page" type="ui-component" flow="blog.read">
+    <meta>
+      <path>app/posts/page.tsx</path>
+      <depends_on>api.posts.create</depends_on>
+    </meta>
+    <input>
+      <field name="searchParams" type="object" required="false" />
+    </input>
+    <constraint verify="static">Show a list of blog posts and a form to submit a new post using the api.posts.create route</constraint>
+  </node>
 </project>`;
 
     const fileUrl = new URL(import.meta.url);
