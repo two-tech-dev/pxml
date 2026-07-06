@@ -62,13 +62,29 @@ To enable editor validation and autocomplete, link your `bugs_history.xml` file 
 </bugs>
 ```
 
-### 5. Validate Environment (Doctor)
+### 5. Validate Specifications (Validate)
+```bash
+pxml validate
+```
+This validates your XML configuration files. It checks:
+- Standard XML schema compliance.
+- Nodes defining `<output>` fields must contain at least one `<test>` case (prevents deployment failures due to missing tests; ignores `db-model` and `setup-command` nodes).
+- All required inputs declared in `<input>` must be supplied in test `<given>` parameters (either at root, in `body`, `query`, or `headers`).
+- Test `<given>` parameters cannot contain extra fields not declared in `<input>` to prevent spec inconsistencies.
+
+### 6. Validate Environment (Doctor)
 ```bash
 pxml doctor
 ```
 Checks tool environment settings and required environment keys.
 
-### 6. XML Schema Autocomplete & Validation
+### 7. Token Usage & Cost Statistics
+After executing `pxml compile` or `pxml fix`, the CLI outputs a comprehensive token usage summary (Input, Output, and Cached tokens) along with an estimated dollar cost based on the active LLM provider rates.
+
+### 8. Multi-Stack Support
+`pxml` supports non-JS/TS stacks (e.g. `python`, `rust`, `go`) by dynamically adjusting the code generator's prompt guidelines and style directives to match the `<project>` `stack` attribute.
+
+### 9. XML Schema Autocomplete & Validation
 To get XML autocomplete, inline documentation, and real-time syntax checking in editors like VS Code, associate your `.xml` files with the provided `pxml.xsd` schema:
 ```xml
 <project name="my-app" stack="nextjs" version="0.1.0"

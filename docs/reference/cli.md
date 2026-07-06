@@ -25,6 +25,9 @@ Invokes the self-healing AI loop to repair failing tests automatically.
 - `--provider <name>`: AI provider configuration for generation.
 - `--model <model>`: AI model configuration for generation.
 
+### `pxml validate`
+Validates XML files against the schema and validation rules. Prevents compiling if nodes with outputs are missing tests, or if test given inputs do not match node inputs.
+
 ### `pxml diagnose`
 Parses server/execution JSON log files and attempts to isolate runtime failures to specific nodes using heuristic algorithms.
 - `--log <logPath>`: Path to the log file to analyze.

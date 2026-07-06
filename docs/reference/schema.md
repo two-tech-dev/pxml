@@ -56,6 +56,7 @@ Specifies coding rules for the AI.
 - `verify` (default: `static`):
   - `static`: Can be tested programmatically.
   - `llm-judge`: Intention checks requiring LLM judgment (e.g. "Do not leak secret keys in responses").
+- `learned-from` (optional): References a bug ID from `bugs_history.xml`. Associates the constraint with a historical bug to prevent code regressions during generation and fixing.
 
 ---
 
