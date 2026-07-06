@@ -21,6 +21,9 @@ pxml compile
 # Or using OpenAI provider
 export OPENAI_API_KEY="your-api-key"
 pxml compile --provider openai --model gpt-4o
+
+# Or using Ollama provider locally
+pxml compile --provider ollama --model llama3 --baseUrl http://localhost:11434
 ```
 Or check the compile execution plan with `--dry-run`:
 ```bash
@@ -40,6 +43,9 @@ pxml fix --flow=blog.write
 
 # Or using OpenAI provider
 pxml fix --flow=blog.write --provider openai --model gpt-4o
+
+# Or using Ollama provider locally
+pxml fix --flow=blog.write --provider ollama --model llama3 --baseUrl http://localhost:11434
 ```
 This formulates a minimal context patch prompt and retries local SEARCH/REPLACE edits up to 3 times.
 
