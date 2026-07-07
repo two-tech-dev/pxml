@@ -1,6 +1,6 @@
 import { Node } from '../parser/schema.js';
 import { PxmlCodegen } from '../codegen/index.js';
-import { PxmlRunner } from '../runner/index.js';
+import { PxmlRunner, getTestFilePath } from '../runner/index.js';
 import { PxmlPatcher } from '../patcher/index.js';
 import { FileWriter } from '../writer/index.js';
 import { PxmlManifest } from '../manifest/index.js';
@@ -57,10 +57,15 @@ export async function runFixLoop(
 
     console.log(`[FIX] Failed test cases: ${failedCases.join(', ')}`);
 
+    const testFilePath = getTestFilePath(node.meta.path, stack);
+    const absTestFilePath = path.resolve(projectDir, testFilePath);
+    const currentTestCode = fs.existsSync(absTestFilePath) ? fs.readFileSync(absTestFilePath, 'utf-8') : '';
+
     // 2. Formulate minimal fix-prompt
-    const patchPrompt = `You are a software repair AI. The following code for node '${node.id}' has issues.
+    const patchPrompt = `You are a software repair AI. The following code or tests for node '${node.id}' have issues.
 ${bugContext ? `Raw Bug Context / Error Logs:\n${bugContext}\n` : ''}
 Path: ${node.meta.path}
+Test Path: ${testFilePath}
 Failed Cases: ${failedCases.join(', ')}
 Node XML spec:
 - Input: ${JSON.stringify(node.input)}
@@ -72,7 +77,23 @@ Current Code:
 ${currentCode}
 \`\`\`
 
-Generate a SEARCH/REPLACE block to patch the code and fix the failures. Format:
+Current Test Code:
+\`\`\`typescript
+${currentTestCode}
+\`\`\`
+
+Analyze if the issue is in the implementation code or the test code (or both).
+Generate SEARCH/REPLACE blocks to patch the files. You MUST prefix each file's search/replace blocks with the header "FILE: [file_path]" where [file_path] is the relative path (either ${node.meta.path} or ${testFilePath}).
+
+Format:
+FILE: ${node.meta.path}
+<<<<<<< SEARCH
+[code to replace]
+=======
+[replacement code]
+>>>>>>> REPLACE
+
+FILE: ${testFilePath}
 <<<<<<< SEARCH
 [code to replace]
 =======
@@ -94,9 +115,29 @@ Generate a SEARCH/REPLACE block to patch the code and fix the failures. Format:
 
     // 4. Apply patch
     try {
-      const patchedCode = PxmlPatcher.applyPatch(currentCode, patch);
-      writer.write(node.meta.path, patchedCode);
-      console.log(`[FIX] Applied patch successfully. Patch details:\n${patch}\n`);
+      const filePatches = patch.split(/FILE:\s+/);
+      if (filePatches.length > 1) {
+        for (const fp of filePatches) {
+          if (!fp.trim()) continue;
+          const firstLineBreak = fp.indexOf('\n');
+          if (firstLineBreak === -1) continue;
+          const relativePath = fp.slice(0, firstLineBreak).trim();
+          const filePatchContent = fp.slice(firstLineBreak + 1);
+
+          const targetFilePath = path.resolve(projectDir, relativePath);
+          if (fs.existsSync(targetFilePath)) {
+            const fileContent = fs.readFileSync(targetFilePath, 'utf-8');
+            const patched = PxmlPatcher.applyPatch(fileContent, filePatchContent);
+            writer.write(targetFilePath, patched);
+            console.log(`[FIX] Applied patch successfully to ${relativePath}.`);
+          }
+        }
+      } else {
+        const patchedCode = PxmlPatcher.applyPatch(currentCode, patch);
+        writer.write(node.meta.path, patchedCode);
+        console.log(`[FIX] Applied patch successfully to ${node.meta.path}.`);
+      }
+      console.log(`[FIX] Patch details:\n${patch}\n`);
     } catch (err: any) {
       console.warn(`[FIX] Failed to apply patch: ${err.message}`);
       // If patch application failed, we retry or escalate

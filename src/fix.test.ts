@@ -110,4 +110,55 @@ export default async function handler(req) {
     expect(success).toBe(true);
     expect(fs.readFileSync(mockNode.meta.path, 'utf-8')).toContain('success: true');
   });
+
+  it('should support multi-file patches targeting both code and tests', async () => {
+    const writer = new FileWriter();
+    const manifest = new PxmlManifest(TMP_DIR, 'test-project', '0.1.0');
+    
+    const initialCode = `export default async function handler(req) { return { status: 500 }; }`;
+    writer.write(mockNode.meta.path, initialCode);
+
+    const testPath = path.join(TMP_DIR, 'tests/app/api/posts/route.test.ts');
+    const initialTestCode = `// Broken test`;
+    writer.write(testPath, initialTestCode);
+
+    const codegen = new PxmlCodegen({
+      model: 'claude',
+      mockResponse: () => ''
+    });
+    const runner = new PxmlRunner(TMP_DIR, writer);
+
+    const mockPatch = `
+FILE: app/api/posts/route.ts
+<<<<<<< SEARCH
+export default async function handler(req) { return { status: 500 }; }
+=======
+export default async function handler(req) { return { status: 200, json: async () => ({ success: true }) }; }
+>>>>>>> REPLACE
+
+FILE: tests/app/api/posts/route.test.ts
+<<<<<<< SEARCH
+// Broken test
+=======
+import { describe, it, expect } from 'vitest';
+describe('api.posts.create', () => {
+  it('Create post successful', () => { expect(true).toBe(true); });
+});
+>>>>>>> REPLACE
+`;
+
+    const success = await runFixLoop(
+      mockNode,
+      TMP_DIR,
+      manifest,
+      codegen,
+      runner,
+      writer,
+      mockPatch
+    );
+
+    expect(success).toBe(true);
+    expect(fs.readFileSync(mockNode.meta.path, 'utf-8')).toContain('success: true');
+    expect(fs.readFileSync(testPath, 'utf-8')).toContain('describe(\'api.posts.create\'');
+  });
 });
