@@ -7,6 +7,15 @@ import { PxmlManifest } from '../manifest/index.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
+const colors = {
+  red: (text: string) => `\x1b[31m${text}\x1b[0m`,
+  green: (text: string) => `\x1b[32m${text}\x1b[0m`,
+  yellow: (text: string) => `\x1b[33m${text}\x1b[0m`,
+  blue: (text: string) => `\x1b[34m${text}\x1b[0m`,
+  cyan: (text: string) => `\x1b[36m${text}\x1b[0m`,
+  bold: (text: string) => `\x1b[1m${text}\x1b[0m`
+};
+
 export async function runFixLoop(
   node: Node,
   projectDir: string,
@@ -22,11 +31,11 @@ export async function runFixLoop(
   const maxRetries = 3;
   let attempt = 0;
 
-  console.log(`[FIX] Starting self-healing loop for node: ${node.id} (Max ${maxRetries} attempts)`);
+  console.log(`${colors.yellow(colors.bold('[FIX]'))} Starting self-healing loop for node: ${node.id} (Max ${maxRetries} attempts)`);
 
   while (attempt < maxRetries) {
     attempt++;
-    console.log(`[FIX] Attempt ${attempt}/${maxRetries}...`);
+    console.log(`${colors.yellow('[FIX]')} Attempt ${attempt}/${maxRetries}...`);
 
     // 1. Gather failure context
     const currentCode = fs.existsSync(node.meta.path) ? fs.readFileSync(node.meta.path, 'utf-8') : '';
@@ -36,7 +45,7 @@ export async function runFixLoop(
     const bypassCheck = forceFirstRun && attempt === 1;
 
     if (testResult.passed && !bypassCheck) {
-      console.log(`[FIX] Success! Node ${node.id} tests passed on attempt ${attempt}.`);
+      console.log(`${colors.green(colors.bold('[FIX]'))} Success! Node ${node.id} tests passed on attempt ${attempt}.`);
       
       // Update manifest
       const existing = manifest.getNode(node.id);
@@ -55,7 +64,7 @@ export async function runFixLoop(
       .filter(([_, status]) => status === 'fail')
       .map(([name]) => name);
 
-    console.log(`[FIX] Failed test cases: ${failedCases.join(', ')}`);
+    console.log(`${colors.red(colors.bold('[FIX]'))} Failed test cases: ${failedCases.join(', ')}`);
 
     const testFilePath = getTestFilePath(node.meta.path, stack);
     const absTestFilePath = path.resolve(projectDir, testFilePath);
@@ -129,17 +138,17 @@ FILE: ${testFilePath}
             const fileContent = fs.readFileSync(targetFilePath, 'utf-8');
             const patched = PxmlPatcher.applyPatch(fileContent, filePatchContent);
             writer.write(targetFilePath, patched);
-            console.log(`[FIX] Applied patch successfully to ${relativePath}.`);
+            console.log(`${colors.green(colors.bold('[FIX]'))} Applied patch successfully to ${relativePath}.`);
           }
         }
       } else {
         const patchedCode = PxmlPatcher.applyPatch(currentCode, patch);
         writer.write(node.meta.path, patchedCode);
-        console.log(`[FIX] Applied patch successfully to ${node.meta.path}.`);
+        console.log(`${colors.green(colors.bold('[FIX]'))} Applied patch successfully to ${node.meta.path}.`);
       }
-      console.log(`[FIX] Patch details:\n${patch}\n`);
+      console.log(`${colors.cyan(colors.bold('[FIX]'))} Patch details:\n${patch}\n`);
     } catch (err: any) {
-      console.warn(`[FIX] Failed to apply patch: ${err.message}`);
+      console.warn(`${colors.red(colors.bold('[FIX]'))} Failed to apply patch: ${err.message}`);
       // If patch application failed, we retry or escalate
       continue;
     }

@@ -13,6 +13,16 @@ import { XMLParser } from 'fast-xml-parser';
 import * as fs from 'fs';
 import * as path from 'path';
 
+const colors = {
+  red: (text: string) => `\x1b[31m${text}\x1b[0m`,
+  green: (text: string) => `\x1b[32m${text}\x1b[0m`,
+  yellow: (text: string) => `\x1b[33m${text}\x1b[0m`,
+  blue: (text: string) => `\x1b[34m${text}\x1b[0m`,
+  magenta: (text: string) => `\x1b[35m${text}\x1b[0m`,
+  cyan: (text: string) => `\x1b[36m${text}\x1b[0m`,
+  bold: (text: string) => `\x1b[1m${text}\x1b[0m`
+};
+
 const program = new Command();
 
 program
@@ -210,12 +220,12 @@ program
       const cached = manifest.getNode(nodeId);
 
       if (cached && cached.xml_hash === xmlHash) {
-        console.log(`[SKIP] Node ${nodeId} has not changed.`);
+        console.log(`${colors.yellow('[SKIP]')} Node ${nodeId} has not changed.`);
         continue;
       }
 
       if (cached && cached.locked) {
-        console.log(`[LOCKED] Node ${nodeId} is locked. Skipping codegen.`);
+        console.log(`${colors.red(colors.bold('[LOCKED]'))} Node ${nodeId} is locked. Skipping codegen.`);
         continue;
       }
 
@@ -234,7 +244,7 @@ program
         }
       }
 
-      console.log(`[CODEGEN] Generating code for node: ${nodeId}`);
+      console.log(`${colors.cyan(colors.bold('[CODEGEN]'))} Generating code for node: ${nodeId}`);
       try {
         const code = await codegen.generateNodeCode(node, projectContext, writer, project.stack);
         
@@ -245,7 +255,7 @@ program
 
         if (node.type !== 'setup-command' && node.type !== 'config-file') {
           if (!cached || cached.xml_hash !== xmlHash || !fs.existsSync(absTestFilePath) || cachedTestHash !== testXmlHash) {
-            console.log(`[TESTGEN] Generating/Updating test file at: ${testFilePath}`);
+            console.log(`${colors.magenta(colors.bold('[TESTGEN]'))} Generating/Updating test file at: ${testFilePath}`);
             await codegen.generateNodeTest(node, absTestFilePath, code, project.stack, writer);
           }
         }
@@ -270,7 +280,7 @@ program
     }
 
     if (compiledNodeIds.length > 0) {
-      console.log('\nRunning tests for compiled nodes...');
+      console.log(colors.cyan(colors.bold('\nRunning tests for compiled nodes...')));
       const runner = new PxmlRunner(cwd, writer);
       let allPassed = true;
       for (const nodeId of compiledNodeIds) {
@@ -278,7 +288,7 @@ program
         if (node.type === 'setup-command' || node.type === 'config-file') {
           continue;
         }
-        console.log(`[TEST] Running tests for node: ${node.id}`);
+        console.log(`${colors.blue(colors.bold('[TEST]'))} Running tests for node: ${node.id}`);
         const res = runner.runNodeTests(node, project.stack);
 
         const existing = manifest.getNode(node.id);
@@ -291,15 +301,48 @@ program
         }
 
         if (!res.passed) {
-          allPassed = false;
-          console.log(`[FAIL] Node ${node.id} failed tests.`);
+          console.log(`${colors.red(colors.bold('[FAIL]'))} Node ${node.id} failed tests. Triggering self-healing...`);
+          
+          let bugContext = '';
+          const bugsHistoryPath = path.join(cwd, 'bugs_history.xml');
+          if (fs.existsSync(bugsHistoryPath)) {
+            try {
+              const historyXml = fs.readFileSync(bugsHistoryPath, 'utf-8');
+              const optionsXml = {
+                ignoreAttributes: false,
+                attributeNamePrefix: '@_',
+                allowBooleanAttributes: true,
+                parseAttributeValue: true,
+              };
+              const fastXml = new XMLParser(optionsXml);
+              const parsed = fastXml.parse(historyXml);
+              if (parsed.bugs && parsed.bugs.bug) {
+                const rawBugs = Array.isArray(parsed.bugs.bug) ? parsed.bugs.bug : [parsed.bugs.bug];
+                let historyText = '\n--- Historical Bug Prevention Checklist ---\n';
+                for (const bug of rawBugs) {
+                  const flowAttr = bug['@_flow'] || 'general';
+                  const desc = typeof bug === 'object' ? bug['#text'] || bug.description || '' : String(bug);
+                  historyText += `- [Flow: ${flowAttr}] Bug ID ${bug['@_id']}: ${desc.trim()}\n`;
+                }
+                bugContext = historyText;
+              }
+            } catch (err: any) {}
+          }
+
+          const success = await runFixLoop(node, cwd, manifest, codegen, runner, writer, undefined, bugContext, false, project.stack);
+          if (!success) {
+            allPassed = false;
+            console.log(`${colors.red(colors.bold('[FAIL]'))} Node ${node.id} failed to self-heal.`);
+          } else {
+            console.log(`${colors.green(colors.bold('[PASS]'))} Node ${node.id} healed successfully.`);
+          }
         } else {
-          console.log(`[PASS] Node ${node.id} tests passed.`);
+          console.log(`${colors.green(colors.bold('[PASS]'))} Node ${node.id} tests passed.`);
         }
       }
       
       if (!allPassed) {
-        console.error('\n[ERROR] Some compiled nodes failed tests. Run pxml fix to resolve.');
+        console.error(colors.red(colors.bold('\n[ERROR] Some compiled nodes failed tests and could not self-heal.')));
         process.exit(1);
       }
     }
