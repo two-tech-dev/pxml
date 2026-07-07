@@ -173,4 +173,35 @@ describe('validateProject', () => {
     };
     expect(() => validateProject(project)).not.toThrow();
   });
+
+  it('should parse and resolve local packages', () => {
+    const parser = new PxmlParser();
+    const fs = require('fs');
+    
+    fs.mkdirSync('/tmp/packages/test-pack', { recursive: true });
+    
+    fs.writeFileSync('/tmp/packages/test-pack/project.xml', `
+      <project name="test-pack" stack="nextjs" version="0.1.0">
+        <node id="base-node" type="setup-command" flow="setup">
+          <meta><path>package.json</path></meta>
+          <constraint verify="static">Mock setup command</constraint>
+        </node>
+      </project>
+    `);
+    
+    fs.writeFileSync('/tmp/main_proj.xml', `
+      <project name="main-project" stack="nextjs" version="0.1.0">
+        <import package="test-pack" from="/tmp/packages/test-pack" as="tpl" />
+        <node id="setup.nextjs" type="setup-command" flow="setup" extends="tpl:base-node" />
+      </project>
+    `);
+    
+    const project = parser.parse('/tmp/main_proj.xml');
+    expect(project.nodes.length).toBe(2);
+    
+    const setupNode = project.nodes.find(n => n.id === 'setup.nextjs');
+    expect(setupNode).toBeDefined();
+    expect(setupNode?.extends).toBe('tpl:base-node');
+    expect(setupNode?.constraints[0].description).toBe('Mock setup command');
+  });
 });

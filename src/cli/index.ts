@@ -32,21 +32,18 @@ program
       return;
     }
 
-    // Create example directory structure for flows
+    // Create example directory structure for flows and packages
     fs.mkdirSync(path.join(cwd, 'flows'), { recursive: true });
     fs.mkdirSync(path.join(cwd, 'shared'), { recursive: true });
+    fs.mkdirSync(path.join(cwd, 'packages', 'init-nextjs-project'), { recursive: true });
 
     const mainXml = `<project name="my-app" stack="nextjs" version="0.1.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="pxml.xsd">
+  <import package="init-nextjs-project" from="packages/init-nextjs-project" as="nextjs-init" />
   <import src="./flows/blog.xml" as="blog" />
 
-  <node id="setup.nextjs" type="setup-command" flow="setup">
-    <meta>
-      <path>package.json</path>
-    </meta>
-    <constraint verify="static">Initialize Next.js app in the current directory non-interactively. Run: npx create-next-app@latest . --typescript --eslint --tailwind --app --no-src-dir --import-alias "@/*" --use-npm --yes && npm install better-sqlite3 && npm install --save-dev @types/better-sqlite3</constraint>
-  </node>
+  <node id="setup.nextjs" type="setup-command" flow="setup" extends="nextjs-init:base-setup" />
 
   <node id="ui.home" type="ui-component" flow="navigation">
     <meta>
@@ -56,6 +53,15 @@ program
     <constraint verify="static">File exports default React component</constraint>
     <constraint verify="static">Page contains a link with href="/posts"</constraint>
     <constraint verify="llm-judge">Replace the entire homepage with a beautifully styled landing page (clean dark theme, tailwind classes). Do not call any dashboard APIs like /api/network or /api/ram. Show a hero section, and a prominent link/button pointing to the Posts page at '/posts'.</constraint>
+  </node>
+</project>`;
+
+    const initNextjsProjectXml = `<project name="init-nextjs-project" stack="nextjs" version="0.1.0">
+  <node id="base-setup" type="setup-command" flow="setup">
+    <meta>
+      <path>package.json</path>
+    </meta>
+    <constraint verify="static">Initialize Next.js app in the current directory non-interactively. Run: npx create-next-app@latest . --typescript --eslint --tailwind --app --no-src-dir --import-alias "@/*" --use-npm --yes && npm install better-sqlite3 && npm install --save-dev @types/better-sqlite3</constraint>
   </node>
 </project>`;
 
@@ -137,6 +143,7 @@ program
 
     fs.writeFileSync(configPath, mainXml, 'utf-8');
     fs.writeFileSync(path.join(cwd, 'flows', 'blog.xml'), blogXml, 'utf-8');
+    fs.writeFileSync(path.join(cwd, 'packages', 'init-nextjs-project', 'project.xml'), initNextjsProjectXml, 'utf-8');
     fs.writeFileSync(path.join(cwd, 'bugs_history.xml'), bugsHistoryXml, 'utf-8');
     console.log('Successfully initialized Next.js project with pxml templates.');
   });

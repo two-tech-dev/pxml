@@ -1,7 +1,9 @@
 import { z } from 'zod';
 
 export const ImportSchema = z.object({
-  src: z.string(),
+  src: z.string().optional(),
+  package: z.string().optional(),
+  from: z.string().optional(),
   as: z.string()
 });
 

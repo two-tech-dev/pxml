@@ -19,7 +19,9 @@ interface RawNode {
 }
 
 interface RawImport {
-  '@_src': string;
+  '@_src'?: string;
+  '@_package'?: string;
+  '@_from'?: string;
   '@_as': string;
 }
 
@@ -73,6 +75,8 @@ export class PxmlParser {
       : [];
     const parsedImports = rawImports.map(imp => ({
       src: imp['@_src'],
+      package: imp['@_package'],
+      from: imp['@_from'],
       as: imp['@_as']
     }));
 
@@ -190,7 +194,32 @@ export class PxmlParser {
     };
 
     for (const imp of currentProject.imports) {
-      const importedPath = path.resolve(baseDir, imp.src);
+      let importedPath = '';
+      if (imp.src) {
+        importedPath = path.resolve(baseDir, imp.src);
+      } else if (imp.package && imp.from) {
+        if (imp.from.startsWith('github:')) {
+          const parts = imp.from.replace(/^github:/, '').split('/');
+          const owner = parts[0];
+          const repo = parts[1];
+          const cacheDir = path.join(process.cwd(), '.pxml', 'packages', 'github', owner, repo);
+          if (!fs.existsSync(cacheDir)) {
+            fs.mkdirSync(cacheDir, { recursive: true });
+            const gitUrl = `https://github.com/${owner}/${repo}.git`;
+            console.log(`[PACKAGE] Cloning package ${imp.package} from ${gitUrl}...`);
+            const { execSync } = require('child_process');
+            execSync(`git clone --depth 1 ${gitUrl} ${cacheDir}`, { stdio: 'ignore' });
+          }
+          importedPath = path.join(cacheDir, 'project.xml');
+        } else {
+          importedPath = path.resolve(process.cwd(), imp.from, 'project.xml');
+        }
+      }
+
+      if (!importedPath || !fs.existsSync(importedPath)) {
+        throw new Error(`Import failed: package/src not found at ${importedPath || imp.src || imp.from}`);
+      }
+
       if (importedPaths.has(importedPath)) continue;
       importedPaths.add(importedPath);
 
