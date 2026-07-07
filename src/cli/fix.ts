@@ -93,6 +93,7 @@ ${currentTestCode}
 \`\`\`
 
 Analyze if the issue is in the implementation code or the test code (or both).
+CRITICAL: Do not break the code's core business logic or violate the XML constraints. If the test fails due to incorrect test assertions, mock setups, or environment mismatches, patch the test file (${testFilePath}) instead of the implementation file (${node.meta.path}).
 Generate SEARCH/REPLACE blocks to patch the files. You MUST prefix each file's search/replace blocks with the header "FILE: [file_path]" where [file_path] is the relative path (either ${node.meta.path} or ${testFilePath}).
 
 Format:
