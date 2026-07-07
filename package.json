@@ -1,6 +1,6 @@
 {
   "name": "pxml",
-  "version": "0.1.1",
+  "version": "0.2.4",
   "description": "XML DSL and compiler for AI-driven project building",
   "type": "module",
   "main": "dist/index.js",
