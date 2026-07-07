@@ -164,6 +164,7 @@ program
   .command('compile')
   .description('Compile XML nodes to implementation code')
   .option('--dry-run', 'Show execution plan without writing changes')
+  .option('--no-autogen-tests', 'Disable automatic test case generation')
   .option('--provider <provider>', 'AI Provider (anthropic, openai, or ollama)', 'anthropic')
   .option('--apiKey <key>', 'API key')
   .option('--baseUrl <url>', 'Base API URL for OpenAI compatible provider')
@@ -252,8 +253,9 @@ program
         const testXmlHash = PxmlCache.hashNodeTests(node);
         const cachedTestHash = (cached as any)?.test_xml_hash;
         const absTestFilePath = path.resolve(cwd, testFilePath);
+        const shouldAutogen = options.autogenTests && node.autogenTests;
 
-        if (node.type !== 'setup-command' && node.type !== 'config-file') {
+        if (shouldAutogen && node.type !== 'setup-command' && node.type !== 'config-file') {
           if (!cached || cached.xml_hash !== xmlHash || !fs.existsSync(absTestFilePath) || cachedTestHash !== testXmlHash) {
             console.log(`${colors.magenta(colors.bold('[TESTGEN]'))} Generating/Updating test file at: ${testFilePath}`);
             await codegen.generateNodeTest(node, absTestFilePath, code, project.stack, writer);
@@ -265,7 +267,7 @@ program
           source_file: 'project.xml',
           xml_hash: xmlHash,
           test_xml_hash: testXmlHash,
-          output_files: node.type !== 'setup-command' && node.type !== 'config-file' ? [node.meta.path, testFilePath] : [node.meta.path],
+          output_files: (shouldAutogen && node.type !== 'setup-command' && node.type !== 'config-file') ? [node.meta.path, testFilePath] : [node.meta.path],
           depends_on: node.meta.depends_on,
           flow: node.flow,
           generated_at: new Date().toISOString()

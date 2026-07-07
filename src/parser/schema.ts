@@ -44,6 +44,7 @@ export const NodeSchema = z.object({
   type: z.string(), // EXTENSION POINT: Expand backend/frontend stack types or generic custom node types
   flow: z.string(),
   extends: z.string().optional(),
+  autogenTests: z.boolean().default(true),
   meta: MetaSchema,
   input: z.array(FieldSchema).default([]),
   output: z.array(FieldSchema).default([]),
@@ -55,6 +56,7 @@ export const ProjectSchema = z.object({
   name: z.string(),
   stack: z.string(), // EXTENSION POINT: Expand backend/frontend stack types
   version: z.string(),
+  autogenTests: z.boolean().default(true),
   imports: z.array(ImportSchema).default([]),
   nodes: z.array(NodeSchema).default([])
 });

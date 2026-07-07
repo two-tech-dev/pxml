@@ -8,6 +8,7 @@ interface RawNode {
   '@_type': string;
   '@_flow': string;
   '@_extends'?: string;
+  '@_autogen-tests'?: string | boolean;
   meta?: {
     path?: string;
     depends_on?: string | string[];
@@ -30,6 +31,7 @@ interface RawProject {
     '@_name': string;
     '@_stack': string;
     '@_version': string;
+    '@_autogen-tests'?: string | boolean;
     import?: RawImport[] | RawImport;
     node?: RawNode[] | RawNode;
   };
@@ -69,6 +71,7 @@ export class PxmlParser {
     const name = String(rawProj['@_name'] || '');
     const stack = String(rawProj['@_stack'] || '');
     const version = String(rawProj['@_version'] || '');
+    const autogenTestsProj = rawProj['@_autogen-tests'] !== undefined ? String(rawProj['@_autogen-tests']) === 'true' : true;
 
     const rawImports = rawProj.import 
       ? (Array.isArray(rawProj.import) ? rawProj.import : [rawProj.import]) 
@@ -140,11 +143,15 @@ export class PxmlParser {
           })
         : [];
 
+      const autogenTestsNode = rn['@_autogen-tests'] !== undefined ? String(rn['@_autogen-tests']) === 'true' : undefined;
+      const autogenTests = autogenTestsNode ?? autogenTestsProj;
+
       return NodeSchema.parse({
         id: rn['@_id'],
         type: rn['@_type'],
         flow: rn['@_flow'],
         extends: rn['@_extends'],
+        autogenTests,
         meta: {
           path: rn.meta?.path || '',
           depends_on: dependsOn
@@ -160,6 +167,7 @@ export class PxmlParser {
       name,
       stack,
       version,
+      autogenTests: autogenTestsProj,
       imports: parsedImports,
       nodes
     });
