@@ -32,6 +32,9 @@ pxml compile --provider openai --model gpt-4o
 
 # Or using Ollama provider locally
 pxml compile --provider ollama --model llama3 --baseUrl http://localhost:11434
+
+# Disable automatic AI test generation to save tokens
+pxml compile --no-autogen-tests
 ```
 Or check the compile execution plan with `--dry-run`:
 ```bash
@@ -94,6 +97,9 @@ After executing `pxml compile` or `pxml fix`, the CLI outputs a comprehensive to
 
 ### 9. XML Schema Autocomplete & Validation
 To get XML autocomplete, inline documentation, and real-time syntax checking in editors like VS Code, associate your `.xml` files with the provided `pxml.xsd` schema:
+
+### Controlling AI Test Generation
+You can control per-project or per-node whether the AI should automatically generate test files. Set `autogen-tests="false"` on the `<project>` or `<node>` element to skip AI test generation (saves token costs). Equivalent CLI flag: `--no-autogen-tests`.
 ```xml
 <project name="my-app" stack="nextjs" version="0.1.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"

@@ -10,6 +10,7 @@ The root element of a project config.
 - `name` (required): Name of the project.
 - `stack` (required): Framework stack being used (e.g. `nextjs`).
 - `version` (required): Spec version.
+- `autogen-tests` (optional, default `true`): Whether to have the AI automatically generate test files for nodes during compilation.
 
 ---
 
@@ -30,6 +31,7 @@ Defines a compilation node (code unit).
 - `type` (required): Type of node (`api-route`, `ui-component`, `db-model`, `middleware`, `config-file`, `setup-command`).
 - `flow` (required): Business logic flow grouping (e.g. `blog.write`).
 - `extends` (optional): ID of a base node to inherit metadata, constraints, and tests from.
+- `autogen-tests` (optional, inherits project default): Override per-node whether to have the AI automatically generate test files for this node.
 
 ---
 

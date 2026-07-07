@@ -10,6 +10,7 @@ Initializes a standard Next.js directory layout, copies the local `pxml.xsd` val
 ### `pxml compile`
 Compiles all modified nodes defined in XML to source code files.
 - `--dry-run`: Performs syntax check, imports flat-mapping, and topological sorting without writing code files to disk.
+- `--no-autogen-tests`: Disables automatic AI generation of test files (saves token usage).
 - `--provider <name>`: AI provider to use (`anthropic`, `openai`, `ollama`, or `custom`). Defaults to `anthropic`.
 - `--apiKey <key>`: Custom API key override.
 - `--baseUrl <url>`: Override the default API endpoint URL (essential for custom gateways or local Ollama endpoints).
