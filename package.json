@@ -1,11 +1,11 @@
 {
-  "name": "pxml",
+  "name": "@two-tech-dev/pxml",
   "version": "0.2.4",
   "description": "XML DSL and compiler for AI-driven project building",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "pxml": "./dist/cli/index.js"
+    "pxml": "dist/cli/index.js"
   },
   "scripts": {
     "build": "tsc",

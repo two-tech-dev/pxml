@@ -2,6 +2,13 @@
 
 `pxml` is a structured XML DSL and compiler for AI-driven code generation. Instead of writing free-form prompts, you specify your web application architecture in XML, manage modifications using a Manifest, and allow the AI to perform local self-healing repairs at minimal cost.
 
+## Installation
+
+Install the compiler globally via npm:
+```bash
+npm install -g @two-tech-dev/pxml
+```
+
 ## End-to-End Getting Started Guide
 
 ### 1. Initialize Sample Project

@@ -7,7 +7,12 @@ This guide walks you through setting up a project using `pxml` and compiling it 
 - npm
 
 ## 1. Installation
-Clone the repository and install the compiler globally:
+Install the compiler globally via npm:
+```bash
+npm install -g @two-tech-dev/pxml
+```
+
+Alternatively, clone the repository and build from source:
 ```bash
 git clone https://github.com/two-tech-dev/pxml.git
 cd pxml
