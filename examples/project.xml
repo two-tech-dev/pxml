@@ -1,14 +1,10 @@
 <project name="my-app" stack="nextjs" version="0.1.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="pxml.xsd">
+  <import package="init-nextjs-project" from="packages/init-nextjs-project" as="nextjs-init" />
   <import src="./flows/blog.xml" as="blog" />
 
-  <node id="setup.nextjs" type="setup-command" flow="setup">
-    <meta>
-      <path>package.json</path>
-    </meta>
-    <constraint verify="static">Initialize Next.js app in the current directory non-interactively. Run: npx create-next-app@latest . --typescript --eslint --tailwind --app --no-src-dir --import-alias "@/*" --use-npm --yes && npm install better-sqlite3 && npm install --save-dev @types/better-sqlite3</constraint>
-  </node>
+  <node id="setup.nextjs" type="setup-command" flow="setup" extends="nextjs-init:base-setup" />
 
   <node id="ui.home" type="ui-component" flow="navigation">
     <meta>

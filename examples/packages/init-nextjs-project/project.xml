@@ -1,0 +1,10 @@
+<project name="init-nextjs-project" stack="nextjs" version="0.1.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="../../pxml.xsd">
+  <node id="base-setup" type="setup-command" flow="setup">
+    <meta>
+      <path>package.json</path>
+    </meta>
+    <constraint verify="static">Initialize Next.js app in the current directory non-interactively. Run: npx create-next-app@latest . --typescript --eslint --tailwind --app --no-src-dir --import-alias "@/*" --use-npm --yes && npm install better-sqlite3 && npm install --save-dev @types/better-sqlite3</constraint>
+  </node>
+</project>
