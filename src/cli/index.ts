@@ -199,6 +199,8 @@ program
       }
     }
 
+    const compiledNodeIds: string[] = [];
+
     for (const nodeId of order) {
       if (extendedNodeIds.has(nodeId)) {
         continue;
@@ -259,9 +261,45 @@ program
           generated_at: new Date().toISOString()
         } as any);
         manifest.save();
+        compiledNodeIds.push(nodeId);
       } catch (err: any) {
         console.error(`[ERROR] Failed to compile node ${nodeId}: ${err.message}`);
         writer.rollback();
+        process.exit(1);
+      }
+    }
+
+    if (compiledNodeIds.length > 0) {
+      console.log('\nRunning tests for compiled nodes...');
+      const runner = new PxmlRunner(cwd, writer);
+      let allPassed = true;
+      for (const nodeId of compiledNodeIds) {
+        const node = project.nodes.find(n => n.id === nodeId)!;
+        if (node.type === 'setup-command' || node.type === 'config-file') {
+          continue;
+        }
+        console.log(`[TEST] Running tests for node: ${node.id}`);
+        const res = runner.runNodeTests(node, project.stack);
+
+        const existing = manifest.getNode(node.id);
+        if (existing) {
+          manifest.setNode(node.id, {
+            ...existing,
+            last_test_run: res.results
+          });
+          manifest.save();
+        }
+
+        if (!res.passed) {
+          allPassed = false;
+          console.log(`[FAIL] Node ${node.id} failed tests.`);
+        } else {
+          console.log(`[PASS] Node ${node.id} tests passed.`);
+        }
+      }
+      
+      if (!allPassed) {
+        console.error('\n[ERROR] Some compiled nodes failed tests. Run pxml fix to resolve.');
         process.exit(1);
       }
     }
