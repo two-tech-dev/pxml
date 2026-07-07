@@ -8,6 +8,7 @@ import { FileWriter } from '../writer/index.js';
 export interface TestResult {
   passed: boolean;
   results: Record<string, 'pass' | 'fail'>;
+  output?: string;
 }
 
 export function getTestFilePath(srcPath: string, stack: string): string {
@@ -72,10 +73,12 @@ export class PxmlRunner {
 
     let passed = false;
     const results: Record<string, 'pass' | 'fail'> = {};
+    let output = '';
 
     try {
-      execSync(testCmd, { stdio: 'pipe', cwd: this.projectDir });
+      const stdout = execSync(testCmd, { stdio: 'pipe', cwd: this.projectDir });
       passed = true;
+      output = stdout.toString();
       for (const t of node.tests) {
         results[t.name] = 'pass';
       }
@@ -86,6 +89,7 @@ export class PxmlRunner {
       passed = false;
       const stdout = error.stdout?.toString() || '';
       const stderr = error.stderr?.toString() || '';
+      output = `${stdout}\n${stderr}`;
 
       for (const t of node.tests) {
         if (stdout.includes(`× ${t.name}`) || stderr.includes(`× ${t.name}`) || stdout.includes(`fail`) || error.message.includes('fail')) {
@@ -99,6 +103,6 @@ export class PxmlRunner {
       }
     }
 
-    return { passed, results };
+    return { passed, results, output };
   }
 }

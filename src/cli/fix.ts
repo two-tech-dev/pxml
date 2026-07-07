@@ -72,6 +72,7 @@ export async function runFixLoop(
 
     // 2. Formulate minimal fix-prompt
     const patchPrompt = `You are a software repair AI. The following code or tests for node '${node.id}' have issues.
+${testResult.output ? `Test Execution Failure Errors:\n${testResult.output}\n` : ''}
 ${bugContext ? `Raw Bug Context / Error Logs:\n${bugContext}\n` : ''}
 Path: ${node.meta.path}
 Test Path: ${testFilePath}
@@ -146,7 +147,7 @@ FILE: ${testFilePath}
         writer.write(node.meta.path, patchedCode);
         console.log(`${colors.green(colors.bold('[FIX]'))} Applied patch successfully to ${node.meta.path}.`);
       }
-      console.log(`${colors.cyan(colors.bold('[FIX]'))} Patch details:\n${patch}\n`);
+      console.log(`${colors.cyan(colors.bold('[FIX]'))} Patch details:\n${summarizePatch(patch)}\n`);
     } catch (err: any) {
       console.warn(`${colors.red(colors.bold('[FIX]'))} Failed to apply patch: ${err.message}`);
       // If patch application failed, we retry or escalate
@@ -154,6 +155,34 @@ FILE: ${testFilePath}
     }
   }
 
-  console.error(`[FIX] Failed to self-heal node ${node.id} after ${maxRetries} attempts. Escolating to user.`);
+  console.error(`${colors.red(colors.bold('[FIX]'))} Failed to self-heal node ${node.id} after ${maxRetries} attempts. Escalating to user.`);
   return false;
+}
+
+function summarizePatch(patch: string): string {
+  const filePatches = patch.split(/FILE:\s+/);
+  if (filePatches.length <= 1) {
+    const blocks = PxmlPatcher.parsePatch(patch);
+    if (blocks.length > 0) {
+      return `  → Modified file: replaced ${blocks[0].search.split('\n').length} line(s) with ${blocks[0].replace.split('\n').length} line(s).`;
+    }
+    return patch.trim();
+  }
+
+  let summary = '';
+  for (const fp of filePatches) {
+    if (!fp.trim()) continue;
+    const firstLineBreak = fp.indexOf('\n');
+    if (firstLineBreak === -1) continue;
+    const relativePath = fp.slice(0, firstLineBreak).trim();
+    const filePatchContent = fp.slice(firstLineBreak + 1);
+
+    const blocks = PxmlPatcher.parsePatch(filePatchContent);
+    if (blocks.length > 0) {
+      summary += `  → ${relativePath}: replaced ${blocks[0].search.split('\n').length} line(s) with ${blocks[0].replace.split('\n').length} line(s).\n`;
+    } else {
+      summary += `  → ${relativePath}: replaced content entirely.\n`;
+    }
+  }
+  return summary.trim();
 }
