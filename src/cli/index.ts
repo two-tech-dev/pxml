@@ -192,7 +192,17 @@ program
 
     console.log(`Compiling project ${project.name} (stack: ${project.stack})...`);
 
+    const extendedNodeIds = new Set<string>();
+    for (const node of project.nodes) {
+      if (node.extends) {
+        extendedNodeIds.add(node.extends);
+      }
+    }
+
     for (const nodeId of order) {
+      if (extendedNodeIds.has(nodeId)) {
+        continue;
+      }
       const node = project.nodes.find(n => n.id === nodeId)!;
       const xmlHash = PxmlCache.hashNode(node);
       const cached = manifest.getNode(nodeId);
