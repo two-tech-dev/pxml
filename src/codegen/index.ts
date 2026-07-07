@@ -389,7 +389,8 @@ If there are issues, output the corrected code. If the code is fully stable, out
 
     const systemPrompt = `You are an expert QA and software testing engineer.
 Generate ONLY the complete test file contents. Do not include markdown code block syntax (like \`\`\`typescript) or explanations. Only output test code.
-CRITICAL: The test framework matches the stack. For JS/TS, use Vitest. For Python, use pytest. For Go, use testing. For C#, use xUnit or NUnit.`;
+CRITICAL: The test framework matches the stack. For JS/TS, use Vitest. For Python, use pytest. For Go, use testing. For C#, use xUnit or NUnit.
+CRITICAL: Never attempt to bind/start a live HTTP server or make real external network calls. Always mock inputs, mock requests, mock responses, and use virtual mock routing/internal test request objects (e.g., mock 'Request' in Next.js, 'httptest' in Go, 'responses' or mock frameworks in Python/C#).`;
 
     let prompt = '';
     if (testFileExists && currentTestCode) {
