@@ -56,7 +56,9 @@ program
   </node>
 </project>`;
 
-    const initNextjsProjectXml = `<project name="init-nextjs-project" stack="nextjs" version="0.1.0">
+    const initNextjsProjectXml = `<project name="init-nextjs-project" stack="nextjs" version="0.1.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="../../pxml.xsd">
   <node id="base-setup" type="setup-command" flow="setup">
     <meta>
       <path>package.json</path>
