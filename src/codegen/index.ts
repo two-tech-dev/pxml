@@ -300,7 +300,7 @@ Generate ONLY the single-line shell command. Do not include explanation, comment
       // Conflict avoidance workaround for npx create-next-app .
       const isCreateNextApp = commandText.includes('create-next-app');
       const tempDir = path.join(process.cwd(), '../.pxml-temp-init');
-      const conflictItems = ['project.xml', 'pxml.xsd', 'flows', 'shared', 'packages', '.pxml', 'README.md', 'LICENSE', '.gitignore', 'bugs_history.xml', 'bugs.xsd'];
+      const conflictItems = ['project.xml', 'pxml.xsd', 'flows', 'shared', 'packages', '.pxml', 'README.md', 'LICENSE', '.gitignore', 'bugs_history.xml', 'bugs.xsd', 'AGENTS.md', 'CLAUDE.md'];
       const movedItems: { src: string; dest: string }[] = [];
 
       if (isCreateNextApp) {
@@ -402,7 +402,22 @@ Generate ONLY the complete test file contents. Do not include markdown code bloc
 CRITICAL: The test framework matches the stack. For JS/TS, use Vitest. For Python, use pytest. For Go, use testing. For C#, use xUnit or NUnit.
 CRITICAL: Never attempt to bind/start a live HTTP server or make real external network calls. Always mock inputs, mock requests, mock responses, and use virtual mock routing/internal test request objects (e.g., mock 'Request' in Next.js, 'httptest' in Go, 'responses' or mock frameworks in Python/C#).
 CRITICAL: For Next.js page components where 'searchParams' is a Promise (Next.js 15/React 19), always wrap the rendered component in '<Suspense>' inside the test to prevent suspension boundary errors.
-CRITICAL: In JS/TS component tests, always add '// @vitest-environment jsdom' at the very top of the test file. Tests are co-located in the same folder as code, so always use local relative paths (e.g. './page' or './route') for importing the implementation code. Never use path aliases (like '@/...').`;
+CRITICAL: In JS/TS component tests, always add '// @vitest-environment jsdom' at the very top of the test file. Tests are co-located in the same folder as code, so always use local relative paths (e.g. './page' or './route') for importing the implementation code. Never use path aliases (like '@/...').
+CRITICAL: When mocking constructors or classes (such as 'better-sqlite3' Database), always mock them using a standard JavaScript class (e.g., 'default: class { ... }') instead of an arrow function (e.g., 'default: () => ...') to prevent 'is not a constructor' TypeErrors.
+CRITICAL: To ensure the DOM is cleared between tests when Vitest globals are disabled, always import 'cleanup' and call 'afterEach(cleanup)' explicitly in the test file (e.g. 'import { cleanup } from "@testing-library/react"; afterEach(cleanup);').`;
+
+    const implExt = path.extname(node.meta.path);
+    const implBase = path.basename(node.meta.path, implExt);
+    let importStatement = '';
+    const stackLower = stack.toLowerCase();
+
+    if (stackLower.includes('python')) {
+      importStatement = `from .${implBase} import ...`;
+    } else if (stackLower.includes('go') || stackLower === 'golang') {
+      importStatement = `// package matches other files in same directory`;
+    } else {
+      importStatement = `import ${node.type === 'api-route' ? '* as handlerModule' : 'Component'} from './${implBase}';`;
+    }
 
     let prompt = '';
     if (testFileExists && currentTestCode) {
@@ -422,6 +437,7 @@ ${currentTestCode}
 XML Specifications:
 - Input Fields: ${JSON.stringify(node.input)}
 - Output Fields: ${JSON.stringify(node.output)}
+- Import Directive: ${importStatement} (You MUST use exactly this relative import statement to import the code being tested. Do not use path aliases like '@/...' or other paths.)
 - Constraints: ${node.constraints.map(c => `[${c.verify}] ${c.description}`).join('\n')}
 
 Generate the updated complete test code. Do not include markdown wrapping or explanation.`;
@@ -437,6 +453,7 @@ Target Test File Path: ${testPath}
 XML Specifications:
 - Input Fields: ${JSON.stringify(node.input)}
 - Output Fields: ${JSON.stringify(node.output)}
+- Import Directive: ${importStatement} (You MUST use exactly this relative import statement to import the code being tested. Do not use path aliases like '@/...' or other paths.)
 - Constraints: ${node.constraints.map(c => `[${c.verify}] ${c.description}`).join('\n')}
 - Defined Test Scenarios: ${JSON.stringify(node.tests)}
 

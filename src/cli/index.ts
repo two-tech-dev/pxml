@@ -73,7 +73,7 @@ program
     <meta>
       <path>package.json</path>
     </meta>
-    <constraint verify="static">Initialize Next.js app in the current directory non-interactively. Run: npx create-next-app@latest . --typescript --eslint --tailwind --app --no-src-dir --import-alias "@/*" --use-npm --yes && npm install better-sqlite3 && npm install --save-dev @types/better-sqlite3 @testing-library/react @testing-library/jest-dom jsdom</constraint>
+    <constraint verify="static">Initialize Next.js app in the current directory non-interactively. Run: npx create-next-app@latest . --typescript --eslint --tailwind --app --no-src-dir --import-alias "@/*" --use-npm --yes && npm install better-sqlite3 && npm install --save-dev @types/better-sqlite3 @testing-library/react @testing-library/jest-dom jsdom vitest</constraint>
   </node>
 </project>`;
 

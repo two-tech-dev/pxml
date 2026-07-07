@@ -134,12 +134,20 @@ FILE: ${testFilePath}
           const relativePath = fp.slice(0, firstLineBreak).trim();
           const filePatchContent = fp.slice(firstLineBreak + 1);
 
-          const targetFilePath = path.resolve(projectDir, relativePath);
+          let targetFilePath = path.resolve(projectDir, relativePath);
+          if (!fs.existsSync(targetFilePath) && relativePath.startsWith('tests/')) {
+            const strippedPath = relativePath.replace(/^tests\//, '');
+            const fallbackPath = path.resolve(projectDir, strippedPath);
+            if (fs.existsSync(fallbackPath)) {
+              targetFilePath = fallbackPath;
+            }
+          }
+
           if (fs.existsSync(targetFilePath)) {
             const fileContent = fs.readFileSync(targetFilePath, 'utf-8');
             const patched = PxmlPatcher.applyPatch(fileContent, filePatchContent);
             writer.write(targetFilePath, patched);
-            console.log(`${colors.green(colors.bold('[FIX]'))} Applied patch successfully to ${relativePath}.`);
+            console.log(`${colors.green(colors.bold('[FIX]'))} Applied patch successfully to ${path.relative(projectDir, targetFilePath)}.`);
           }
         }
       } else {
