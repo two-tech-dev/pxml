@@ -89,13 +89,22 @@ pxml doctor
 ```
 Checks tool environment settings and required environment keys.
 
-### 7. Token Usage & Cost Statistics
+### 7. Migrate Project to Latest Syntax (Migrate)
+```bash
+pxml migrate
+```
+Updates all project XML files (`project.xml`, `flows/*.xml`, `packages/*/project.xml`) to the latest pxml syntax standard:
+- Adds `autogen-tests="true" on `<project>` and `<node>` elements
+- Updates `xsi:noNamespaceSchemaLocation` to correct relative paths
+- Copies latest `pxml.xsd` and `bugs.xsd` schemas to project root
+
+### 8. Token Usage & Cost Statistics
 After executing `pxml compile` or `pxml fix`, the CLI outputs a comprehensive token usage summary (Input, Output, and Cached tokens) along with an estimated dollar cost based on the active LLM provider rates.
 
-### 8. Multi-Stack Support
+### 9. Multi-Stack Support
 `pxml` supports non-JS/TS stacks (e.g. `python`, `rust`, `go`) by dynamically adjusting the code generator's prompt guidelines and style directives to match the `<project>` `stack` attribute.
 
-### 9. XML Schema Autocomplete & Validation
+### 10. XML Schema Autocomplete & Validation
 To get XML autocomplete, inline documentation, and real-time syntax checking in editors like VS Code, associate your `.xml` files with the provided `pxml.xsd` schema:
 
 ### Controlling AI Test Generation

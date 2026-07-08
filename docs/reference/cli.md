@@ -35,3 +35,10 @@ Parses server/execution JSON log files and attempts to isolate runtime failures 
 
 ### `pxml doctor`
 Performs validation checks on project configs, env keys, databases, and general environment options.
+
+### `pxml migrate`
+Migrates project XML files to the latest pxml syntax version:
+- Updates all `project.xml`, `flows/*.xml`, `packages/*/project.xml` files
+- Adds `autogen-tests="true"` to `<project>` and `<node>` elements
+- Corrects `xsi:noNamespaceSchemaLocation` to proper relative paths
+- Copies latest `pxml.xsd` and `bugs.xsd` to project root
