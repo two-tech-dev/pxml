@@ -567,7 +567,139 @@ program
   });
 
 program
-  .command('doctor')
+.command('migrate')
+.description('Migrate project XML files and schema to the latest pxml syntax version')
+.action(() => {
+  const cwd = process.cwd();
+  const projectXml = path.join(cwd, 'project.xml');
+  if (!fs.existsSync(projectXml)) {
+    console.error('project.xml not found. Run pxml init first.');
+    process.exit(1);
+  }
+  const fileUrl = new URL(import.meta.url);
+  const xsdSource = path.resolve(path.dirname(fileUrl.pathname), '../../pxml.xsd');
+  const bugsXsdSource = path.resolve(path.dirname(fileUrl.pathname), '../../bugs.xsd');
+
+  let updated = false;
+
+  function findXmlFiles(dir: string): string[] {
+    const results: string[] = [];
+    if (!fs.existsSync(dir)) return results;
+    const list = fs.readdirSync(dir);
+    for (const file of list) {
+      const filePath = path.join(dir, file);
+      const stat = fs.statSync(filePath);
+      if (stat && stat.isDirectory()) {
+        if (file === 'node_modules' || file === '.git' || file === '.pxml' || file === 'dist') {
+          continue;
+        }
+        results.push(...findXmlFiles(filePath));
+      } else if (file.endsWith('.xml')) {
+        results.push(filePath);
+      }
+    }
+    return results;
+  }
+
+  function updateXmlAttributes(content: string, tagName: string, updates: Record<string, string>): { content: string, updated: boolean } {
+    const tagRegex = new RegExp(`<${tagName}\\s+([^>]*?)(\\/?)>`, 's');
+    const match = content.match(tagRegex);
+    if (!match) return { content, updated: false };
+
+    const [fullTag, attrString, selfClosing] = match;
+    const attrs: Record<string, string> = {};
+    const attrRegex = /([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+    let attrMatch;
+    while ((attrMatch = attrRegex.exec(attrString)) !== null) {
+      attrs[attrMatch[1]] = attrMatch[2] || attrMatch[3] || '';
+    }
+
+    let changed = false;
+    for (const [key, value] of Object.entries(updates)) {
+      if (attrs[key] !== value) {
+        attrs[key] = value;
+        changed = true;
+      }
+    }
+
+    if (!changed) return { content, updated: false };
+
+    const newAttrString = Object.entries(attrs)
+      .map(([k, v]) => `${k}="${v}"`)
+      .join('\n         ');
+
+    const newTag = `<${tagName} ${newAttrString}${selfClosing ? ' /' : ''}>`;
+    const startIndex = match.index!;
+    const newContent = content.slice(0, startIndex) + newTag + content.slice(startIndex + fullTag.length);
+    return { content: newContent, updated: true };
+  }
+
+  // 1. Scan and update all XML files in project
+  const xmlFiles = findXmlFiles(cwd);
+  for (const xmlFile of xmlFiles) {
+    let content = fs.readFileSync(xmlFile, 'utf-8');
+    let fileUpdated = false;
+
+    const relDir = path.relative(path.dirname(xmlFile), cwd);
+    
+    if (content.includes('<project')) {
+      const xsdPath = relDir ? path.join(relDir, 'pxml.xsd') : 'pxml.xsd';
+      const updates: Record<string, string> = {
+        'xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+        'xsi:noNamespaceSchemaLocation': xsdPath,
+      };
+      
+      // Only set autogen-tests="true" if it wasn't already specified as false
+      if (!content.includes('autogen-tests=')) {
+        updates['autogen-tests'] = 'true';
+      }
+
+      const res = updateXmlAttributes(content, 'project', updates);
+      if (res.updated) {
+        content = res.content;
+        fileUpdated = true;
+      }
+    } else if (content.includes('<bugs')) {
+      const bugsXsdPath = relDir ? path.join(relDir, 'bugs.xsd') : 'bugs.xsd';
+      const updates = {
+        'xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+        'xsi:noNamespaceSchemaLocation': bugsXsdPath,
+      };
+      const res = updateXmlAttributes(content, 'bugs', updates);
+      if (res.updated) {
+        content = res.content;
+        fileUpdated = true;
+      }
+    }
+
+    if (fileUpdated) {
+      fs.writeFileSync(xmlFile, content, 'utf-8');
+      updated = true;
+      console.log(`Updated XML schema references: ${path.relative(cwd, xmlFile)}`);
+    }
+  }
+
+  // 2. Copy/update XSD schema files in the project root
+  for (const [src, destName] of [[xsdSource, 'pxml.xsd'], [bugsXsdSource, 'bugs.xsd']]) {
+    const dest = path.join(cwd, destName);
+    const buf = fs.readFileSync(src);
+    const existing = fs.existsSync(dest) ? fs.readFileSync(dest) : Buffer.alloc(0);
+    if (!buf.equals(existing)) {
+      fs.writeFileSync(dest, buf);
+      updated = true;
+      console.log(`Updated schema file: ${destName}`);
+    }
+  }
+
+  if (updated) {
+    console.log('Project files updated to latest syntax.');
+  } else {
+    console.log('Project is already up to date.');
+  }
+});
+
+program
+.command('doctor')
   .description('Diagnostics checklist (configurations, env keys, databases)')
   .action(() => {
     console.log('--- Doctor Check ---');

@@ -90,12 +90,14 @@
              <xs:attribute name="type" type="xs:string" use="required"/>
             <xs:attribute name="flow" type="xs:string" use="required"/>
             <xs:attribute name="extends" type="xs:string" use="optional"/>
+            <xs:attribute name="autogen-tests" type="xs:boolean" use="optional"/>
           </xs:complexType>
         </xs:element>
       </xs:sequence>
       <xs:attribute name="name" type="xs:string" use="required"/>
       <xs:attribute name="stack" type="xs:string" use="required"/>
       <xs:attribute name="version" type="xs:string" use="required"/>
+      <xs:attribute name="autogen-tests" type="xs:boolean" use="optional"/>
     </xs:complexType>
   </xs:element>
 

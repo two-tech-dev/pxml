@@ -204,4 +204,44 @@ describe('validateProject', () => {
     expect(setupNode?.extends).toBe('tpl:base-node');
     expect(setupNode?.constraints[0].description).toBe('Mock setup command');
   });
+
+  it('should run migrate command and update XML files and copy schemas', () => {
+    const fs = require('fs');
+    const { execSync } = require('child_process');
+    const tempDir = '/tmp/up-proj-test-temp';
+    if (fs.existsSync(tempDir)) {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+    fs.mkdirSync(tempDir, { recursive: true });
+    fs.mkdirSync(path.join(tempDir, 'flows'), { recursive: true });
+
+    fs.writeFileSync(path.join(tempDir, 'project.xml'), `
+      <project name="test-app" stack="nextjs" version="0.1.0">
+        <import src="./flows/blog.xml" as="blog" />
+      </project>
+    `);
+    fs.writeFileSync(path.join(tempDir, 'flows/blog.xml'), `
+      <project name="blog-flow" stack="nextjs" version="0.1.0">
+        <node id="api.posts.create" type="api-route" flow="blog.write">
+          <meta><path>app/api/posts/route.ts</path></meta>
+        </node>
+      </project>
+    `);
+
+    const cliPath = path.resolve(__dirname, '../src/cli/index.ts');
+    execSync(`npx tsx "${cliPath}" migrate`, { cwd: tempDir, stdio: 'inherit' });
+
+    const projectXmlContent = fs.readFileSync(path.join(tempDir, 'project.xml'), 'utf-8');
+    expect(projectXmlContent).toContain('autogen-tests="true"');
+    expect(projectXmlContent).toContain('xsi:noNamespaceSchemaLocation="pxml.xsd"');
+
+    const blogXmlContent = fs.readFileSync(path.join(tempDir, 'flows/blog.xml'), 'utf-8');
+    expect(blogXmlContent).toContain('autogen-tests="true"');
+    expect(blogXmlContent).toContain('xsi:noNamespaceSchemaLocation="../pxml.xsd"');
+
+    expect(fs.existsSync(path.join(tempDir, 'pxml.xsd'))).toBe(true);
+    expect(fs.existsSync(path.join(tempDir, 'bugs.xsd'))).toBe(true);
+
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
 });
