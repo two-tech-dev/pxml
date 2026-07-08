@@ -1,0 +1,33 @@
+<project name="detail-flow" stack="nextjs" version="0.1.0">
+  <node id="ui.product.detail" type="ui-component" flow="detail.view">
+    <meta>
+      <path>app/catalog/[slug]/page.tsx</path>
+      <depends_on>setup:setup.nextjs.base</depends_on>
+      <depends_on>design:design.layout-shell</depends_on>
+      <depends_on>design:design.card</depends_on>
+      <depends_on>design:design.button</depends_on>
+      <depends_on>design:design.badge</depends_on>
+      <depends_on>api:api.mock-data</depends_on>
+      <depends_on>api:api.product-detail.route</depends_on>
+    </meta>
+    <input>
+      <field name="slug" type="string" required="true" />
+    </input>
+    <constraint verify="static">Create product detail page at /catalog/[slug] using route params slug. If product does not exist, render a not-found-like empty state with CTA back to /catalog. Do not crash on missing params shape in tests.</constraint>
+    <constraint verify="static">Main layout must be two-column on desktop and single-column on mobile. Left: image gallery with one large preview and 3 smaller thumbnails stacked or inline. Right: category label, product title, subtitle, rating row, price block with compare-at price, inventory status badge, key bullet features, quantity stepper, add-to-cart CTA, save-for-later CTA, shipping promise box.</constraint>
+    <constraint verify="static">Below the fold add three sections: Detailed Description, Technical Specifications table, and Related Products grid. Specs table uses two columns Key / Value with zebra-like row dividers and muted labels.</constraint>
+    <constraint verify="static">Responsive rules: gallery must stay above content on mobile, sticky buy box only on desktop if easy to implement, buttons full width on mobile, trust badges stack cleanly. No carousel library; simple thumbnail selection or static gallery is enough.</constraint>
+    <constraint verify="static">Accessibility: all images require descriptive alt text, thumbnail buttons need aria-label, quantity stepper buttons need labels, spec table uses semantic table markup, review count links to reviews anchor even if review content is static.</constraint>
+    <constraint verify="llm-judge">The page must feel like a polished commerce PDP. The hierarchy should make buying easy without loud visual gimmicks. Use restrained shadow, clear borders, and professional spacing.</constraint>
+    <test>
+      <name>Product detail renders pricing and specs</name>
+      <given>
+        <method>GET</method>
+        <slug>walnut-laptop-stand</slug>
+      </given>
+      <expect>
+        <contains>Specifications</contains>
+      </expect>
+    </test>
+  </node>
+</project>

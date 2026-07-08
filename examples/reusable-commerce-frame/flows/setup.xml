@@ -1,0 +1,16 @@
+<project name="setup-flow" stack="nextjs" version="0.1.0">
+  <node id="setup.base" type="setup-command" flow="setup.base">
+    <constraint verify="static">Base setup node used only for dependency ordering. It is extended by concrete setup nodes and must not generate a file by itself.</constraint>
+  </node>
+
+  <node id="setup.nextjs.base" type="setup-command" flow="setup.bootstrap" extends="setup.base">
+    <meta>
+      <path>package.json</path>
+      <depends_on>setup.base</depends_on>
+    </meta>
+    <constraint verify="static">Initialize a Next.js application in the current directory non-interactively with TypeScript, App Router, ESLint, Tailwind CSS, no src directory, npm, and import alias at slash star. Reuse the default Next folder layout so generated files live under app, components, and lib without custom architecture layers.</constraint>
+    <constraint verify="static">Keep the dependency set intentionally small for a reusable frontend frame. Allow only the standard Next.js stack and at most one tiny utility dependency such as clsx if class composition becomes noisy. Do not install chart libraries, animation libraries, icon packs, database drivers, state managers, component mega-kits, or visual effect plugins.</constraint>
+    <constraint verify="static">Preserve Tailwind defaults and rely on utility classes rather than custom theme plugins. The generated website must feel like a clean commercial product shell that teams can restyle later without fighting gradients, glows, neon shadows, glassmorphism, or hidden magic config.</constraint>
+    <constraint verify="llm-judge">The setup outcome should feel boring in a good way: predictable folders, normal scripts, and a codebase a senior frontend developer would happily hand to another team for reuse. Prefer maintainability over novelty.</constraint>
+  </node>
+</project>

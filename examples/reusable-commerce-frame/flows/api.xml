@@ -1,0 +1,200 @@
+<project name="api-flow" stack="nextjs" version="0.1.0">
+  <node id="api.contracts" type="config-file" flow="api.foundation">
+    <meta>
+      <path>lib/api/contracts.ts</path>
+    </meta>
+    <constraint verify="static">Export lightweight TypeScript helpers and response contracts for the reusable commerce frame: CatalogResponse, ProductDetailResponse, CartResponse, AccountResponse, AdminResponse, and an error envelope with error plus status. Keep the file framework-agnostic and free of React imports.</constraint>
+    <constraint verify="static">Contract names and fields must mirror the mock routes in this flow so teams can replace in-memory data with a real backend later without rewriting page component props.</constraint>
+    <constraint verify="llm-judge">This file should feel like practical scaffolding for a reusable frontend shell, not enterprise ceremony.</constraint>
+  </node>
+
+  <node id="api.mock-data" type="config-file" flow="api.foundation">
+    <meta>
+      <path>lib/mock-data.ts</path>
+      <depends_on>api.contracts</depends_on>
+    </meta>
+    <constraint verify="static">Export realistic mock arrays and helpers for the reusable commerce frame. Include at least 8 products across categories Desk Setup, Audio, Travel, and Storage. Each product must have id, slug, title, subtitle, 2 to 3 sentence description, price, compareAtPrice, rating, reviewCount, stock, status, gallery, tags, featured flag, and specs pairs.</constraint>
+    <constraint verify="static">Include mock cart items, user profile, orders, dashboard metrics, and admin table rows. Data must feel commercially plausible: specific titles like Walnut Laptop Stand, Carry Sleeve 14, Studio Wireless Headphones, Modular Cable Organizer, not generic Item One. Prices should look realistic and varied, for example 29, 79, 129, 249.</constraint>
+    <constraint verify="static">Export helper functions getFeaturedProducts, getProductBySlug, getRelatedProducts, searchProducts, getCartSummary, getAccountSummary, and getAdminMetrics. Keep all helpers synchronous and pure so frontend pages and API routes can reuse them without database or fetch calls.</constraint>
+    <constraint verify="llm-judge">Mock data should make generated screens look like a finished product demo rather than a code scaffold. Titles, categories, specs, and statuses should support believable cards, filters, tables, and detail pages.</constraint>
+  </node>
+
+  <node id="api.catalog.route" type="api-route" flow="api.catalog">
+    <meta>
+      <path>app/api/products/route.ts</path>
+      <depends_on>api.mock-data</depends_on>
+    </meta>
+    <input>
+      <field name="category" type="string" required="false" />
+      <field name="q" type="string" required="false" />
+      <field name="sort" type="string" required="false" />
+      <field name="featured" type="string" required="false" />
+    </input>
+    <output>
+      <field name="items" type="array" required="true" />
+      <field name="total" type="number" required="true" />
+    </output>
+    <constraint verify="static">Implement a Next.js route handler exporting GET and export const dynamic = 'force-dynamic'. Read query params category, q, sort, and featured from the request URL. Return JSON with items and total using the mock product helpers.</constraint>
+    <constraint verify="static">Sorting rules must support featured, newest, price-asc, price-desc, and rating. If category is missing, return all active products. If q exists, filter title, subtitle, tags, and category case-insensitively.</constraint>
+    <constraint verify="static">Response must never include draft products in storefront mode. Include status 200 for normal responses and a valid JSON shape even when zero items match.</constraint>
+    <constraint verify="llm-judge">The route should feel like a clean mock backend contract a frontend team could later replace with a real service without changing page structure.</constraint>
+    <test>
+      <name>Catalog route returns product list</name>
+      <given>
+        <method>GET</method>
+        <query>
+          <sort>featured</sort>
+        </query>
+      </given>
+      <expect>
+        <status>200</status>
+        <contains>items</contains>
+      </expect>
+    </test>
+    <test>
+      <name>Catalog route supports category filter</name>
+      <given>
+        <method>GET</method>
+        <query>
+          <category>Audio</category>
+        </query>
+      </given>
+      <expect>
+        <status>200</status>
+        <contains>Audio</contains>
+      </expect>
+    </test>
+  </node>
+
+  <node id="api.product-detail.route" type="api-route" flow="api.detail">
+    <meta>
+      <path>app/api/products/[slug]/route.ts</path>
+      <depends_on>api.mock-data</depends_on>
+    </meta>
+    <input>
+      <field name="slug" type="string" required="true" />
+    </input>
+    <output>
+      <field name="item" type="object" required="true" />
+      <field name="related" type="array" required="true" />
+    </output>
+    <constraint verify="static">Implement a route handler with GET accepting slug from route params or a request helper shape commonly used in tests. Return status 200 with item and related arrays when found. Return status 404 with an error field when slug is unknown.</constraint>
+    <constraint verify="static">Use getProductBySlug and getRelatedProducts from mock data. Related list must exclude the current product and contain up to 4 items from the same category or featured products.</constraint>
+    <constraint verify="llm-judge">The response should provide enough structured data for a polished product detail page with gallery, specs, pricing, trust badges, and recommendation rail.</constraint>
+    <test>
+      <name>Product detail returns matching item</name>
+      <given>
+        <method>GET</method>
+        <slug>walnut-laptop-stand</slug>
+      </given>
+      <expect>
+        <status>200</status>
+        <contains>related</contains>
+      </expect>
+    </test>
+    <test>
+      <name>Product detail handles unknown slug</name>
+      <given>
+        <method>GET</method>
+        <slug>missing-product</slug>
+      </given>
+      <expect>
+        <status>404</status>
+        <contains>error</contains>
+      </expect>
+    </test>
+  </node>
+
+  <node id="api.cart.route" type="api-route" flow="api.cart">
+    <meta>
+      <path>app/api/cart/route.ts</path>
+      <depends_on>api.mock-data</depends_on>
+    </meta>
+    <input>
+      <field name="productId" type="string" required="false" />
+      <field name="quantity" type="number" required="false" />
+      <field name="action" type="string" required="false" />
+    </input>
+    <output>
+      <field name="items" type="array" required="true" />
+      <field name="subtotal" type="number" required="true" />
+      <field name="count" type="number" required="true" />
+    </output>
+    <constraint verify="static">Implement GET, POST, and DELETE handlers using in-memory mock data only. GET returns current cart summary. POST accepts productId and quantity and returns updated summary. DELETE empties the mock cart response and returns an empty-state payload. Do not use localStorage in the route.</constraint>
+    <constraint verify="static">Always return JSON containing items, subtotal, and count. For invalid productId or quantity less than 1, return status 400 with an error message.</constraint>
+    <constraint verify="llm-judge">This route should behave like a realistic placeholder backend contract for add-to-cart demos, simple enough to swap later for a real order service.</constraint>
+    <test>
+      <name>Add to cart returns updated summary</name>
+      <given>
+        <method>POST</method>
+        <body>
+          <productId>studio-wireless-headphones</productId>
+          <quantity>1</quantity>
+        </body>
+      </given>
+      <expect>
+        <status>200</status>
+        <contains>subtotal</contains>
+      </expect>
+    </test>
+    <test>
+      <name>Delete cart clears items</name>
+      <given>
+        <method>DELETE</method>
+      </given>
+      <expect>
+        <status>200</status>
+        <contains>items</contains>
+      </expect>
+    </test>
+  </node>
+
+  <node id="api.account.route" type="api-route" flow="api.account">
+    <meta>
+      <path>app/api/account/route.ts</path>
+      <depends_on>api.mock-data</depends_on>
+    </meta>
+    <output>
+      <field name="user" type="object" required="true" />
+      <field name="orders" type="array" required="true" />
+    </output>
+    <constraint verify="static">Implement GET returning a mock logged-in customer profile, recent orders, saved stats, and dashboard shortcuts. No authentication dependency required; this is a demo contract only.</constraint>
+    <constraint verify="static">Response JSON must contain user and orders keys and one additional summary object with loyaltyPoints, savedItemsCount, and pendingDeliveries.</constraint>
+    <constraint verify="llm-judge">The contract should be useful for rendering a realistic account dashboard, not merely a name/email echo.</constraint>
+    <test>
+      <name>Account route exposes user dashboard data</name>
+      <given>
+        <method>GET</method>
+      </given>
+      <expect>
+        <status>200</status>
+        <contains>orders</contains>
+      </expect>
+    </test>
+  </node>
+
+  <node id="api.admin.route" type="api-route" flow="api.admin">
+    <meta>
+      <path>app/api/admin/route.ts</path>
+      <depends_on>api.mock-data</depends_on>
+    </meta>
+    <output>
+      <field name="metrics" type="array" required="true" />
+      <field name="products" type="array" required="true" />
+      <field name="orders" type="array" required="true" />
+    </output>
+    <constraint verify="static">Implement GET returning admin overview metrics, product rows, and order rows based on mock data. Include conversionRate, averageOrderValue, lowStockCount, and pendingOrders in metrics.</constraint>
+    <constraint verify="static">This is a mock admin route. Do not perform auth, database, or mutation logic. Keep it read-only and deterministic.</constraint>
+    <constraint verify="llm-judge">The payload should feel dashboard-ready, with enough variety to render stat cards, tables, and alerts convincingly.</constraint>
+    <test>
+      <name>Admin route exposes metrics and tables</name>
+      <given>
+        <method>GET</method>
+      </given>
+      <expect>
+        <status>200</status>
+        <contains>metrics</contains>
+      </expect>
+    </test>
+  </node>
+</project>

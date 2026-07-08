@@ -1,0 +1,51 @@
+<project name="account-flow" stack="nextjs" version="0.1.0">
+  <node id="ui.login.page" type="ui-component" flow="account.auth">
+    <meta>
+      <path>app/login/page.tsx</path>
+      <depends_on>setup:setup.nextjs.base</depends_on>
+      <depends_on>design:design.layout-shell</depends_on>
+      <depends_on>design:design.button</depends_on>
+      <depends_on>design:design.input</depends_on>
+    </meta>
+    <constraint verify="static">Create a polished login page at /login with LayoutShell. Include email input, password input, remember-me checkbox, forgot password link, primary Sign in button, secondary Create account link, and short trust note about secure checkout.</constraint>
+    <constraint verify="static">Form validation must handle empty email, invalid email format, empty password, and disabled/loading button state. Submission can be mocked: show success message and link to /account after a brief loading state.</constraint>
+    <constraint verify="static">Visual layout: centered auth card max-w-md, white bg, border slate-200, shadow-sm, rounded-2xl, py-12 page padding. Avoid fullscreen dark hero or decorative AI blobs.</constraint>
+    <constraint verify="static">Accessibility: labels tied to inputs, error messages role alert, checkbox has label, forgot password link is keyboard reachable, and submit button clearly indicates loading.</constraint>
+    <constraint verify="llm-judge">Login must look trustworthy and understated. Copy should be concise, commerce-oriented, and not generic lorem ipsum.</constraint>
+    <test>
+      <name>Login page exposes email and password fields</name>
+      <given>
+        <method>GET</method>
+      </given>
+      <expect>
+        <contains>Sign in</contains>
+      </expect>
+    </test>
+  </node>
+
+  <node id="ui.account.dashboard" type="ui-component" flow="account.dashboard">
+    <meta>
+      <path>app/account/page.tsx</path>
+      <depends_on>setup:setup.nextjs.base</depends_on>
+      <depends_on>design:design.layout-shell</depends_on>
+      <depends_on>design:design.badge</depends_on>
+      <depends_on>design:design.button</depends_on>
+      <depends_on>design:design.empty-state</depends_on>
+      <depends_on>api:api.account.route</depends_on>
+    </meta>
+    <constraint verify="static">Create an account dashboard page /account that uses mock account data from /api/account or lib/mock-data. Show profile overview, order status cards, loyalty points, saved items count, delivery alerts, and recent orders list.</constraint>
+    <constraint verify="static">Page structure: breadcrumb Account, headline Welcome back, card grid for stats, a recent orders table/list, saved addresses panel, and quick actions panel linking to /catalog, /cart, and Support.</constraint>
+    <constraint verify="static">Recent orders row must include order number, date, status badge, item count, total, and View details link. Mobile view must stack row details into cards instead of overflowing table.</constraint>
+    <constraint verify="static">States: show empty state if orders array is empty, loading skeleton block if client fetching is used, and error fallback with retry button if fetch fails.</constraint>
+    <constraint verify="llm-judge">Account page must feel useful to a returning customer, not just a profile card. Use real ecommerce copy: tracking, invoices, returns window, saved payment hints.</constraint>
+    <test>
+      <name>Account dashboard renders orders and loyalty data</name>
+      <given>
+        <method>GET</method>
+      </given>
+      <expect>
+        <contains>Recent Orders</contains>
+      </expect>
+    </test>
+  </node>
+</project>

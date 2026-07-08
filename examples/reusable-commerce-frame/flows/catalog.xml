@@ -1,0 +1,40 @@
+<project name="catalog-flow" stack="nextjs" version="0.1.0">
+  <node id="ui.catalog.page" type="ui-component" flow="catalog.view">
+    <meta>
+      <path>app/catalog/page.tsx</path>
+      <depends_on>setup:setup.nextjs.base</depends_on>
+      <depends_on>design:design.layout-shell</depends_on>
+      <depends_on>design:design.card</depends_on>
+      <depends_on>design:design.input</depends_on>
+      <depends_on>design:design.empty-state</depends_on>
+      <depends_on>api:api.mock-data</depends_on>
+      <depends_on>api:api.catalog.route</depends_on>
+    </meta>
+    <input>
+      <field name="searchParams" type="object" required="false" />
+      <field name="category" type="string" required="false" />
+      <field name="q" type="string" required="false" />
+      <field name="sort" type="string" required="false" />
+      <field name="page" type="number" required="false" />
+    </input>
+    <constraint verify="static">Create /catalog page with LayoutShell and a structured product listing experience. Use server component rendering if possible. Support reading searchParams q, category, sort, and page from Next.js page props without crashing when missing or Promise-like.</constraint>
+    <constraint verify="static">Top area must include breadcrumb Home / Catalog, page title All Products, short category description, and results count. Use max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10.</constraint>
+    <constraint verify="static">Filter sidebar desktop: left column width around 280px with Categories, Price Range, Availability, Rating, and Sort controls. Mobile: filters collapse into a full-width details/summary accordion above grid. No offscreen drawer dependency required.</constraint>
+    <constraint verify="static">Product grid: right column uses responsive grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 and ProductCard links to /catalog/[slug]. Cards must have consistent image heights and no layout shift.</constraint>
+    <constraint verify="static">States: loading skeleton definitions for 6 cards if client fetch is used; empty state when no products match filters; accessible pagination nav with Previous/Next buttons. If rendering directly from mock data, still include reusable empty-state and skeleton component definitions for future API wiring.</constraint>
+    <constraint verify="static">Accessibility: filter controls must have labels, sort select must have aria-label, product grid must use list semantics, pagination must have aria-current for active page.</constraint>
+    <constraint verify="llm-judge">Catalog should feel like a serious storefront: dense enough for shopping, not cluttered. Filter sidebar separators and labels should be precise; CTA labels specific; no placeholder lorem ipsum.</constraint>
+    <test>
+      <name>Catalog renders filters and product grid</name>
+      <given>
+        <method>GET</method>
+        <query>
+          <category>Audio</category>
+        </query>
+      </given>
+      <expect>
+        <contains>All Products</contains>
+      </expect>
+    </test>
+  </node>
+</project>

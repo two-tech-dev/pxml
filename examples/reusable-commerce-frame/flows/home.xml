@@ -1,0 +1,26 @@
+<project name="home-flow" stack="nextjs" version="0.1.0">
+  <node id="ui.home" type="ui-component" flow="home.view">
+    <meta>
+      <path>app/page.tsx</path>
+      <depends_on>setup:setup.nextjs.base</depends_on>
+      <depends_on>design:design.layout-shell</depends_on>
+      <depends_on>design:design.card</depends_on>
+      <depends_on>design:design.button</depends_on>
+      <depends_on>api:api.mock-data</depends_on>
+    </meta>
+    <constraint verify="static">Create the main landing page at app/page.tsx using the LayoutShell. The page must render a Hero section, a Category Grid, a Featured Products horizontal row, a Promo Banner, and a trust credentials grid.</constraint>
+    <constraint verify="static">Hero section requirements: High-contrast typography with a bold title (e.g. Elevate Your Daily WorkSpace), a short paragraph describing premium accessories, and primary CTA pointing to '/catalog' and secondary CTA pointing to '/deals'. Do not use random stock image URLs; use solid backgrounds, neutral borders, or stylized SVG patterns.</constraint>
+    <constraint verify="static">Featured Products section: Fetch or import featured products from lib/mock-data.tsx and render them using the ProductCard component. Support up to 4 items in a responsive grid (grid-cols-1 sm:grid-cols-2 lg:grid-cols-4).</constraint>
+    <constraint verify="static">Trust Grid: Show at least 3 cards highlighting Free Shipping, 2-Year Warranty, and Carbon Neutral delivery with tiny custom inline SVGs and slate descriptions.</constraint>
+    <constraint verify="llm-judge">The page must present a clean, premium, production-ready corporate brand. Keep whitespace generous: py-16 or py-24 between sections. Avoid dark neon colors, moving animations, excessive scroll reveals, or glow borders. Nền trắng/xám nhạt (bg-slate-50/50).</constraint>
+    <test>
+      <name>Home renders hero CTA and featured products</name>
+      <given>
+        <method>GET</method>
+      </given>
+      <expect>
+        <contains>WorkSpace</contains>
+      </expect>
+    </test>
+  </node>
+</project>

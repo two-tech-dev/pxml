@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem *)",
+      "Bash(tsx *)",
+      "PowerShell(npx tsx src/cli/index.ts validate)",
+      "PowerShell(npm install *)"
+    ]
+  }
+}

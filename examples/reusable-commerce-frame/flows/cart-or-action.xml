@@ -1,0 +1,51 @@
+<project name="cart-or-action-flow" stack="nextjs" version="0.1.0">
+  <node id="ui.cart.page" type="ui-component" flow="cart.manage">
+    <meta>
+      <path>app/cart/page.tsx</path>
+      <depends_on>setup:setup.nextjs.base</depends_on>
+      <depends_on>design:design.layout-shell</depends_on>
+      <depends_on>design:design.card</depends_on>
+      <depends_on>design:design.button</depends_on>
+      <depends_on>design:design.input</depends_on>
+      <depends_on>design:design.empty-state</depends_on>
+      <depends_on>api:api.mock-data</depends_on>
+      <depends_on>api:api.cart.route</depends_on>
+    </meta>
+    <constraint verify="static">Create the cart management page /cart using LayoutShell. It must fetch active cart items from /api/cart, display list rows, calculate subtotal, shipping, tax, total, and offer actions to update quantities, remove items, clear cart, and proceed to checkout.</constraint>
+    <constraint verify="static">Cart row component: product thumbnail image, name, variant, price, quantity stepper inputs, item total, and a clear trash-bin remove button. Stepper should restrict input to positive integers, updating backend values automatically or upon commit.</constraint>
+    <constraint verify="static">Right/Below summary panel: subtotal, shipping rate (or dynamic text Free Shipping above threshold), estimated tax, and order total. Add promo code accordion with input field and validation button. CTA checkout points to /checkout or renders checkout inline.</constraint>
+    <constraint verify="static">Empty state: if cart is empty, render the EmptyState component with a friendly shopping bag icon and CTA pointing back to /catalog.</constraint>
+    <constraint verify="static">Accessibility: table/list views must be labeled, quantity inputs must use label or aria-label per row, cart total must have semantic heading, checkout CTA button needs clear focus highlight.</constraint>
+    <constraint verify="llm-judge">The layout must be responsive, clean, and highly intuitive. Cart items list should align details nicely with prices and steppers. The total summary should remain visible without awkward scroll overlaps.</constraint>
+    <test>
+      <name>Cart page displays item list and total summary</name>
+      <given>
+        <method>GET</method>
+      </given>
+      <expect>
+        <contains>Order Summary</contains>
+      </expect>
+    </test>
+  </node>
+
+  <node id="ui.checkout.page" type="ui-component" flow="cart.checkout">
+    <meta>
+      <path>app/checkout/page.tsx</path>
+      <depends_on>ui.cart.page</depends_on>
+    </meta>
+    <constraint verify="static">Create the checkout page /checkout using LayoutShell. The page must display a progressive 3-step checkout form: 1. Shipping Address, 2. Payment Details, 3. Order Review, along with a sticky Order Summary showing product names, prices, quantities, and order total.</constraint>
+    <constraint verify="static">Form requirements: Shipping fields (fullName, address, city, country, zip), Payment fields (cardName, cardNumber mock, expiry, cvc), and Billing match switch. Field focus states and standard validation errors must match the design system atoms. Use role alert for field validations.</constraint>
+    <constraint verify="static">Review section: summarize user shipping choices, payment mask, and cart item details. CTA Place Order must show a success dialog or redirect to a confirmation screen /checkout/success.</constraint>
+    <constraint verify="static">Accessibility: fieldsets must use legend tags, checkout steps must have clear step indicator status, payment inputs must restrict non-numeric chars and mask sensitive data where possible, inputs require matching labels.</constraint>
+    <constraint verify="llm-judge">Checkout must represent a secure, standard digital storefront. The step navigation must clearly mark complete, active, and pending stages. Spacing should prioritize form inputs readability, without forcing layout wrapping on average laptop screens.</constraint>
+    <test>
+      <name>Checkout renders shipping form and review summary</name>
+      <given>
+        <method>GET</method>
+      </given>
+      <expect>
+        <contains>Shipping Address</contains>
+      </expect>
+    </test>
+  </node>
+</project>

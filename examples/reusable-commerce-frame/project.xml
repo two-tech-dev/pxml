@@ -1,0 +1,11 @@
+<project name="reusable-commerce-frame" stack="nextjs" version="0.1.0">
+  <import src="./flows/admin.xml" as="admin" />
+  <import src="./flows/account.xml" as="account" />
+  <import src="./flows/cart-or-action.xml" as="action" />
+  <import src="./flows/detail.xml" as="detail" />
+  <import src="./flows/catalog.xml" as="catalog" />
+  <import src="./flows/home.xml" as="home" />
+  <import src="./flows/api.xml" as="api" />
+  <import src="./flows/design-system.xml" as="design" />
+  <import src="./flows/setup.xml" as="setup" />
+</project>

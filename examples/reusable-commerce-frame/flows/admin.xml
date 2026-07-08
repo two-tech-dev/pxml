@@ -1,0 +1,48 @@
+<project name="admin-flow" stack="nextjs" version="0.1.0">
+  <node id="ui.admin.dashboard" type="ui-component" flow="admin.metrics">
+    <meta>
+      <path>app/admin/page.tsx</path>
+      <depends_on>setup:setup.nextjs.base</depends_on>
+      <depends_on>design:design.layout-shell</depends_on>
+      <depends_on>design:design.badge</depends_on>
+      <depends_on>design:design.button</depends_on>
+      <depends_on>api:api.admin.route</depends_on>
+    </meta>
+    <constraint verify="static">Create the admin dashboard route app/admin/page.tsx using the LayoutShell. This view must fetch real overview metrics and logs from /api/admin and display conversion metrics, top items, and system status indicators.</constraint>
+    <constraint verify="static">The top grid must include at least 4 metric tiles: Total Sales (with green positive change indicator), Orders Count, Conversion Rate (e.g. 2.4%), and Low Stock Alerts count. Metrics tiles must use card styling with muted labels.</constraint>
+    <constraint verify="static">Render two content sections below the metrics grid: 1. Recent Orders Table showing ID, Customer Email, Total Price, Date, and Status (using badge colors like paid, shipped, pending), 2. Low Stock Products list showing item name, stock count, and Restock CTA button.</constraint>
+    <constraint verify="static">Sidebar/Navigation: provide a secondary vertical navigation panel listing Overview, Products, Orders, Customers, Settings. Mobile view collapses this panel into a responsive navigation drawer or top select menu.</constraint>
+    <constraint verify="static">Accessibility: data tables must include captions and semantic table headers, stat cards must use valid headings, quick action buttons need clear hover highlights, and low stock items require assistive tags.</constraint>
+    <constraint verify="llm-judge">The dashboard must look clean, sober, and business-focused. Colors must avoid flashy gradients or glow shadows. White backgrounds with grey panels are preferred.</constraint>
+    <test>
+      <name>Admin dashboard renders overview metrics and tables</name>
+      <given>
+        <method>GET</method>
+      </given>
+      <expect>
+        <contains>Conversion Rate</contains>
+      </expect>
+    </test>
+  </node>
+
+  <node id="ui.admin.products" type="ui-component" flow="admin.products">
+    <meta>
+      <path>app/admin/products/page.tsx</path>
+      <depends_on>ui.admin.dashboard</depends_on>
+    </meta>
+    <constraint verify="static">Create the admin products table page at app/admin/products/page.tsx using the LayoutShell and secondary navigation layout. This page must display a list of all products, offering filters for Status (active, draft, out_of_stock), Category, and a search input.</constraint>
+    <constraint verify="static">The table must display columns: Product, Category, Price, Stock level, Status, and Actions (Edit button). Out of stock items must display a badge in rose-600 with bold text, while drafts display neutral gray.</constraint>
+    <constraint verify="static">Add a primary CTA button Create Product at the top right. Clicking the button can trigger an inline slide-over drawer or redirect to a mock product creation route /admin/products/new.</constraint>
+    <constraint verify="static">Accessibility: search inputs require labels, table headers must match column data, badges require descriptive tags, and row actions must be screen-reader friendly.</constraint>
+    <constraint verify="llm-judge">Admin tables must maintain exact spacing: small line heights, consistent table borders, no horizontal text wrapping for status badges, and comfortable paginated steps.</constraint>
+    <test>
+      <name>Admin products page renders products table and filters</name>
+      <given>
+        <method>GET</method>
+      </given>
+      <expect>
+        <contains>Create Product</contains>
+      </expect>
+    </test>
+  </node>
+</project>

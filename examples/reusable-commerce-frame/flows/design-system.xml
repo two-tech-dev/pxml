@@ -1,0 +1,218 @@
+<project name="design-system" stack="nextjs" version="0.1.0">
+  <node id="design.base" type="setup-command" flow="design.foundation">
+    <constraint verify="static">Base design-system prompt shared by every generated design-system file. Treat this flow as a reusable frontend frame: clean layout, predictable props, no visual gimmicks, and components that other screens can compose safely.</constraint>
+  </node>
+
+  <node id="design.tailwind-config" type="config-file" flow="design.foundation" extends="design.base">
+    <meta>
+      <path>tailwind.config.ts</path>
+      <depends_on>design.base</depends_on>
+    </meta>
+    <constraint verify="static">Keep Tailwind configuration minimal and compatible with a standard Next.js App Router project. Content scanning must include app, components, and lib folders for ts, tsx, mdx, js, jsx files.</constraint>
+    <constraint verify="static">Define a reusable commercial color language through Tailwind theme extension only when needed: primary zinc-950, primaryForeground white, surface white, surfaceMuted slate-50, border slate-200, text slate-950, textMuted slate-500, success emerald-600, warning amber-600, danger rose-600. Do not add gradients, glow utilities, neon palettes, or animation plugins.</constraint>
+    <constraint verify="llm-judge">The config should feel like reusable frontend infrastructure, not a branded art experiment. Future teams must be able to restyle it by changing a few colors.</constraint>
+  </node>
+
+  <node id="design.globals-css" type="config-file" flow="design.foundation" extends="design.base">
+    <meta>
+      <path>app/globals.css</path>
+      <depends_on>design.base</depends_on>
+      <depends_on>design.tailwind-config</depends_on>
+    </meta>
+    <constraint verify="static">Implement Tailwind base, components, utilities imports and standard global CSS variables for background, foreground, muted, border, ring, primary, and danger. Support light mode first, plus a controlled dark mode class with slate/zinc surfaces.</constraint>
+    <constraint verify="static">Body must use a clean sans-serif stack, bg-white text-slate-950, antialiased rendering, and no global background images. Selection color should be subtle zinc background with white foreground.</constraint>
+    <constraint verify="static">Add focus-visible baseline style only for keyboard navigation. Do not remove outlines globally. Links and buttons must remain accessible with visible focus rings.</constraint>
+    <constraint verify="llm-judge">Global styling should be barely noticeable and professional. It should never overpower page components.</constraint>
+  </node>
+
+  <node id="design.types" type="config-file" flow="design.foundation" extends="design.base">
+    <meta>
+      <path>lib/types.ts</path>
+      <depends_on>design.base</depends_on>
+      <depends_on>design.globals-css</depends_on>
+    </meta>
+    <constraint verify="static">Export TypeScript types Product, ProductVariant, CartItem, Order, UserProfile, NavItem, AdminMetric, and ApiEnvelope. Product must include id, slug, title, subtitle, description, price, compareAtPrice, category, rating, reviewCount, stock, status, image, gallery, tags, specs, and featured boolean.</constraint>
+    <constraint verify="static">Use string literal unions for status fields: product status values active, draft, archived, out_of_stock; order status values pending, paid, packed, shipped, completed, cancelled; user role values guest, customer, admin.</constraint>
+    <constraint verify="static">Types must not import React. Keep this file pure and usable from server routes, client components, tests, and mock data.</constraint>
+  </node>
+
+  <node id="design.cn-util" type="config-file" flow="design.foundation" extends="design.base">
+    <meta>
+      <path>lib/cn.ts</path>
+      <depends_on>design.base</depends_on>
+      <depends_on>design.types</depends_on>
+    </meta>
+    <constraint verify="static">Create a tiny className merge helper named cn using only clsx if installed, otherwise a local function that filters falsy values and joins strings. Do not add tailwind-merge dependency.</constraint>
+  </node>
+
+  <node id="design.button" type="ui-component" flow="design.atoms" extends="design.base">
+    <meta>
+      <path>components/ui/Button.tsx</path>
+      <depends_on>design.base</depends_on>
+      <depends_on>design.cn-util</depends_on>
+    </meta>
+    <constraint verify="static">Export a Button component with variants primary, secondary, outline, ghost, danger, and link; sizes sm, md, lg, icon. Support disabled, loading, type, aria-label, className, and children props. Use forwardRef only if useful for native button semantics.</constraint>
+    <constraint verify="static">Primary style must be bg-zinc-950 text-white hover:bg-zinc-800. Secondary must be bg-slate-100 text-slate-900 hover:bg-slate-200. Outline must be border border-slate-200 bg-white hover:bg-slate-50. Ghost must be transparent hover:bg-slate-100. Danger must be bg-rose-600 text-white hover:bg-rose-700.</constraint>
+    <constraint verify="static">Focus state must include focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2. Disabled state must reduce opacity and block pointer events.</constraint>
+    <constraint verify="llm-judge">Button shape and spacing must look like a real production design system: rounded-xl, consistent 40px medium height, no bounce effects, no glow, no gradient.</constraint>
+    <test>
+      <name>Button exposes accessible CTA text</name>
+      <given>
+        <method>GET</method>
+      </given>
+      <expect>
+        <contains>primary</contains>
+      </expect>
+    </test>
+  </node>
+
+  <node id="design.badge" type="ui-component" flow="design.atoms" extends="design.base">
+    <meta>
+      <path>components/ui/Badge.tsx</path>
+      <depends_on>design.base</depends_on>
+      <depends_on>design.cn-util</depends_on>
+    </meta>
+    <constraint verify="static">Export Badge component with neutral, success, warning, danger, info, and outline variants. Use muted backgrounds: slate-50, emerald-50, amber-50, rose-50, sky-50 with readable text and subtle border.</constraint>
+    <constraint verify="static">Badge must render as inline-flex, rounded-full, px-2.5, py-0.5, text-xs, font-medium, border. Support className and children.</constraint>
+    <constraint verify="llm-judge">Badges must communicate state without looking noisy. They should be readable in tables, cards, and mobile detail pages.</constraint>
+    <test>
+      <name>Badge supports status copy</name>
+      <given>
+        <method>GET</method>
+      </given>
+      <expect>
+        <contains>success</contains>
+      </expect>
+    </test>
+  </node>
+
+  <node id="design.input" type="ui-component" flow="design.atoms" extends="design.base">
+    <meta>
+      <path>components/ui/Input.tsx</path>
+      <depends_on>design.base</depends_on>
+      <depends_on>design.cn-util</depends_on>
+    </meta>
+    <constraint verify="static">Export Input and Textarea components with label, helperText, error, id, name, required, disabled, placeholder, value, onChange, type, and className props. Associate label with control by htmlFor/id.</constraint>
+    <constraint verify="static">Input base style must be h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-950 placeholder:text-slate-400. Error state must use border-rose-300 and aria-invalid true.</constraint>
+    <constraint verify="static">Helper text must be text-slate-500. Error text must be text-rose-600 and announced with role alert if error exists. Never hide validation messages with only color.</constraint>
+    <constraint verify="llm-judge">Form fields should be compact but touch-friendly. Mobile layout must keep labels readable and not crowd controls.</constraint>
+    <test>
+      <name>Input exposes label helper and error API</name>
+      <given>
+        <method>GET</method>
+      </given>
+      <expect>
+        <contains>helperText</contains>
+      </expect>
+    </test>
+  </node>
+
+  <node id="design.card" type="ui-component" flow="design.atoms" extends="design.base">
+    <meta>
+      <path>components/ui/Card.tsx</path>
+      <depends_on>design.base</depends_on>
+      <depends_on>design.cn-util</depends_on>
+      <depends_on>design.badge</depends_on>
+    </meta>
+    <constraint verify="static">Export Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter, and ProductCard components. ProductCard must accept a Product-like object and render image, category, title, subtitle, rating, review count, price, compare price, status badge, and CTA link/button.</constraint>
+    <constraint verify="static">Card container must use bg-white border border-slate-200 rounded-2xl shadow-sm. Hover state may use hover:shadow-md and hover:-translate-y-px with transition, but no dramatic animation.</constraint>
+    <constraint verify="static">Product image area must use aspect-square or aspect-[4/3], overflow-hidden, bg-slate-50, object-cover. Include alt text from product title. Use Next Image if available, otherwise standard img with width and height attributes.</constraint>
+    <constraint verify="llm-judge">ProductCard should look like a reusable e-commerce card from a real storefront. Information hierarchy: image first, badge/category second, title/subtitle third, rating/price last, CTA visible but not loud.</constraint>
+    <test>
+      <name>Card includes product hierarchy</name>
+      <given>
+        <method>GET</method>
+      </given>
+      <expect>
+        <contains>ProductCard</contains>
+      </expect>
+    </test>
+  </node>
+
+  <node id="design.empty-state" type="ui-component" flow="design.components" extends="design.base">
+    <meta>
+      <path>components/ui/EmptyState.tsx</path>
+      <depends_on>design.base</depends_on>
+      <depends_on>design.button</depends_on>
+    </meta>
+    <constraint verify="static">Export EmptyState component with title, description, actionLabel, actionHref, secondaryLabel, secondaryHref, and iconName props. Render a centered panel with a simple inline SVG placeholder, not an icon dependency.</constraint>
+    <constraint verify="static">EmptyState must be usable for empty cart, no search results, empty admin table, and unauthenticated account pages. Include default copy that is specific enough: Nothing here yet, Try adjusting filters, Continue browsing.</constraint>
+    <constraint verify="llm-judge">The empty state must feel intentionally designed: enough whitespace, a calm icon, clear next action, no sad robot illustration or decorative nonsense.</constraint>
+    <test>
+      <name>Empty state shows actionable copy</name>
+      <given>
+        <method>GET</method>
+      </given>
+      <expect>
+        <contains>Continue browsing</contains>
+      </expect>
+    </test>
+  </node>
+
+  <node id="design.header" type="ui-component" flow="design.components" extends="design.base">
+    <meta>
+      <path>components/ui/Header.tsx</path>
+      <depends_on>design.base</depends_on>
+      <depends_on>design.button</depends_on>
+      <depends_on>design.input</depends_on>
+      <depends_on>design.badge</depends_on>
+    </meta>
+    <constraint verify="static">Create a responsive Header with logo text CommerceFrame, nav links Home, Catalog, Deals, About, Account, Admin, search field, cart link with count badge, and mobile menu toggle. Use Next Link for internal navigation.</constraint>
+    <constraint verify="static">Desktop layout: max-w-7xl mx-auto h-16 px-4 sm:px-6 lg:px-8, logo left, nav center, search plus account/cart actions right. Mobile layout: logo left, icon buttons right, nav menu appears below header when open with stacked links and full-width search.</constraint>
+    <constraint verify="static">Header must be sticky top-0 z-50 bg-white/90 backdrop-blur-sm border-b border-slate-200. Avoid heavy blur, glass panels, gradients, and shadow-xl.</constraint>
+    <constraint verify="static">All icon-only buttons must include aria-label. Mobile menu button must have aria-expanded tied to open state. Search input must have label or aria-label.</constraint>
+    <constraint verify="llm-judge">Header should look hand-built, not template spam: balanced columns, no useless decorative icons, clear CTA hierarchy, and steady spacing across mobile, tablet, desktop.</constraint>
+    <test>
+      <name>Header exposes main nav routes</name>
+      <given>
+        <method>GET</method>
+      </given>
+      <expect>
+        <contains>Catalog</contains>
+      </expect>
+    </test>
+  </node>
+
+  <node id="design.footer" type="ui-component" flow="design.components" extends="design.base">
+    <meta>
+      <path>components/ui/Footer.tsx</path>
+      <depends_on>design.base</depends_on>
+      <depends_on>design.button</depends_on>
+      <depends_on>design.input</depends_on>
+    </meta>
+    <constraint verify="static">Create a Footer with brand block, short product description, four sitemap columns named Shop, Support, Company, Legal, newsletter signup form, language selector, currency selector, and copyright line. Include realistic links: Products, New arrivals, Shipping, Returns, Contact, Privacy, Terms.</constraint>
+    <constraint verify="static">Footer grid must be responsive: grid-cols-1 on mobile, sm:grid-cols-2 on tablet, lg:grid-cols-5 on desktop with brand column spanning wider. Use bg-slate-50 border-t border-slate-200 text-slate-600.</constraint>
+    <constraint verify="static">Newsletter form must include email input, submit button, helper text about occasional updates, and accessible label. Submission behavior can be mock client alert or no-op with success text.</constraint>
+    <constraint verify="llm-judge">Footer must feel complete and credible. No lorem ipsum. Copy should sound like a practical commerce platform footer.</constraint>
+    <test>
+      <name>Footer includes newsletter and legal links</name>
+      <given>
+        <method>GET</method>
+      </given>
+      <expect>
+        <contains>Newsletter</contains>
+      </expect>
+    </test>
+  </node>
+
+  <node id="design.layout-shell" type="ui-component" flow="design.components" extends="design.base">
+    <meta>
+      <path>components/ui/LayoutShell.tsx</path>
+      <depends_on>design.base</depends_on>
+      <depends_on>design.header</depends_on>
+      <depends_on>design.footer</depends_on>
+    </meta>
+    <constraint verify="static">Export LayoutShell component that wraps children with Header, main landmark, and Footer. Main must use id main-content, min-h-screen, and include a visually hidden skip link target for keyboard users.</constraint>
+    <constraint verify="static">LayoutShell accepts cartCount, userName, currentPath, and children props. Provide safe defaults so static pages can render without data fetching.</constraint>
+    <constraint verify="llm-judge">Layout shell should make every page feel consistent while staying invisible. It must not impose page-specific spacing that fights home, catalog, detail, cart, account, or admin screens.</constraint>
+    <test>
+      <name>Layout shell includes main landmark</name>
+      <given>
+        <method>GET</method>
+      </given>
+      <expect>
+        <contains>main-content</contains>
+      </expect>
+    </test>
+  </node>
+</project>

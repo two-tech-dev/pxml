@@ -1,0 +1,454 @@
+import Anthropic from '@anthropic-ai/sdk';
+import { execSync } from 'child_process';
+import * as fs from 'fs';
+import * as path from 'path';
+const colors = {
+    red: (text) => `\x1b[31m${text}\x1b[0m`,
+    green: (text) => `\x1b[32m${text}\x1b[0m`,
+    yellow: (text) => `\x1b[33m${text}\x1b[0m`,
+    blue: (text) => `\x1b[34m${text}\x1b[0m`,
+    magenta: (text) => `\x1b[35m${text}\x1b[0m`,
+    cyan: (text) => `\x1b[36m${text}\x1b[0m`,
+    bold: (text) => `\x1b[1m${text}\x1b[0m`
+};
+function getStackInstructions(stack) {
+    const stackLower = stack.toLowerCase();
+    if (stackLower.includes('python')) {
+        return {
+            systemPrompt: `You are an expert Python developer generating implementation code for a node specification.
+Generate ONLY the file contents. Do not include markdown code block syntax (like \`\`\`python) or explanations. Only output code.
+CRITICAL: Use idiomatic Python code, follow PEP 8 styling, and make sure dependencies are imported correctly.`,
+            promptNote: `Stack: Python. Use standard Python practices, requirements, and imports.`
+        };
+    }
+    else if (stackLower.includes('rust')) {
+        return {
+            systemPrompt: `You are an expert Rust developer generating implementation code for a node specification.
+Generate ONLY the file contents. Do not include markdown code block syntax (like \`\`\`rust) or explanations. Only output code.
+CRITICAL: Write clean Rust code, manage lifetimes and ownership correctly, and follow Rust idioms.`,
+            promptNote: `Stack: Rust. Use standard Rust syntax and crate references.`
+        };
+    }
+    else if (stackLower.includes('go') || stackLower === 'golang') {
+        return {
+            systemPrompt: `You are an expert Go developer generating implementation code for a node specification.
+Generate ONLY the file contents. Do not include markdown code block syntax (like \`\`\`go) or explanations. Only output code.
+CRITICAL: Write idiomatic Go code, ensure correct package declaration, and format using gofmt standards.`,
+            promptNote: `Stack: Go. Use standard Go packaging and syntax.`
+        };
+    }
+    else if (stackLower.includes('c#') || stackLower === 'csharp' || stackLower.includes('dotnet')) {
+        return {
+            systemPrompt: `You are an expert C# developer generating implementation code for a node specification.
+Generate ONLY the file contents. Do not include markdown code block syntax (like \`\`\`csharp) or explanations. Only output code.
+CRITICAL: Use modern C# syntax, follow standard .NET conventions, and declare namespace/imports correctly.`,
+            promptNote: `Stack: C# / .NET. Use standard .NET namespace and architecture.`
+        };
+    }
+    else if (stackLower.includes('c++') || stackLower === 'cpp') {
+        return {
+            systemPrompt: `You are an expert C++ developer generating implementation code for a node specification.
+Generate ONLY the file contents. Do not include markdown code block syntax (like \`\`\`cpp) or explanations. Only output code.
+CRITICAL: Use modern C++ standards (C++17/20), handle memory management correctly, and ensure clean header and source file separation.`,
+            promptNote: `Stack: C++. Use standard C++ library and syntax.`
+        };
+    }
+    else {
+        return {
+            systemPrompt: `You are an expert software engineer generating implementation code for a node specification.
+Generate ONLY the file contents. Do not include markdown code block syntax (like \`\`\`typescript) or explanations. Only output code.
+CRITICAL: The codebase uses ES Modules (ESM). You must STRICTLY use 'import ... from ...' syntax. NEVER generate CommonJS 'require(...)' calls.`,
+            promptNote: `Stack: JS/TS (${stack}). Ensure ES Module format.`
+        };
+    }
+}
+export class AnthropicProvider {
+    client;
+    stats = { inputTokens: 0, outputTokens: 0, cachedTokens: 0 };
+    constructor(apiKey) {
+        this.client = new Anthropic({ apiKey });
+    }
+    async generate(prompt, systemPrompt, model) {
+        const response = await this.client.messages.create({
+            model,
+            max_tokens: 4000,
+            system: systemPrompt,
+            messages: [{ role: 'user', content: prompt }]
+        });
+        if (response.usage) {
+            this.stats.inputTokens += response.usage.input_tokens || 0;
+            this.stats.outputTokens += response.usage.output_tokens || 0;
+            const cacheRead = response.usage.cache_read_input_tokens || 0;
+            this.stats.cachedTokens += cacheRead;
+        }
+        return response.content[0].type === 'text' ? response.content[0].text : '';
+    }
+}
+export class OpenAICompatibleProvider {
+    apiKey;
+    baseUrl;
+    stats = { inputTokens: 0, outputTokens: 0, cachedTokens: 0 };
+    constructor(apiKey, baseUrl = 'https://api.openai.com/v1') {
+        this.apiKey = apiKey;
+        this.baseUrl = baseUrl;
+    }
+    async generate(prompt, systemPrompt, model) {
+        const maxRetries = 3;
+        let attempt = 0;
+        while (attempt < maxRetries) {
+            attempt++;
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 seconds timeout
+            try {
+                const response = await fetch(`${this.baseUrl}/chat/completions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${this.apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model,
+                        messages: [
+                            { role: 'system', content: systemPrompt },
+                            { role: 'user', content: prompt }
+                        ],
+                        temperature: 0.2,
+                        stream: false
+                    }),
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                if (!response.ok) {
+                    const errText = await response.text();
+                    throw new Error(`OpenAI Provider HTTP error! status: ${response.status}, details: ${errText}`);
+                }
+                const data = await response.json();
+                if (data.usage) {
+                    this.stats.inputTokens += data.usage.prompt_tokens || 0;
+                    this.stats.outputTokens += data.usage.completion_tokens || 0;
+                    const cached = data.usage.prompt_tokens_details?.cached_tokens || 0;
+                    this.stats.cachedTokens += cached;
+                }
+                return data.choices?.[0]?.message?.content || '';
+            }
+            catch (err) {
+                clearTimeout(timeoutId);
+                if (attempt >= maxRetries) {
+                    throw new Error(`OpenAI API request failed after ${maxRetries} attempts: ${err.message}`);
+                }
+                console.warn(`[API WARN] Attempt ${attempt} failed: ${err.message}. Retrying...`);
+                // Backoff delay
+                await new Promise(res => setTimeout(res, 2000 * attempt));
+            }
+        }
+        throw new Error('OpenAI API request failed.');
+    }
+}
+export class OllamaProvider {
+    baseUrl;
+    stats = { inputTokens: 0, outputTokens: 0, cachedTokens: 0 };
+    constructor(baseUrl = 'http://localhost:11434') {
+        this.baseUrl = baseUrl;
+    }
+    async generate(prompt, systemPrompt, model) {
+        const maxRetries = 3;
+        let attempt = 0;
+        while (attempt < maxRetries) {
+            attempt++;
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 seconds timeout
+            try {
+                const response = await fetch(`${this.baseUrl}/api/generate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model,
+                        prompt: `${systemPrompt}\n\nUser specifications:\n${prompt}`,
+                        stream: false,
+                        options: {
+                            temperature: 0.2
+                        }
+                    }),
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                if (!response.ok) {
+                    const errText = await response.text();
+                    throw new Error(`Ollama Provider HTTP error! status: ${response.status}, details: ${errText}`);
+                }
+                const data = await response.json();
+                if (data) {
+                    this.stats.inputTokens += data.prompt_eval_count || 0;
+                    this.stats.outputTokens += data.eval_count || 0;
+                }
+                return data.response || '';
+            }
+            catch (err) {
+                clearTimeout(timeoutId);
+                if (attempt >= maxRetries) {
+                    throw new Error(`Ollama API request failed after ${maxRetries} attempts: ${err.message}`);
+                }
+                console.warn(`[OLLAMA WARN] Attempt ${attempt} failed: ${err.message}. Retrying...`);
+                await new Promise(res => setTimeout(res, 2000 * attempt));
+            }
+        }
+        throw new Error('Ollama API request failed.');
+    }
+}
+export class PxmlCodegen {
+    config;
+    provider;
+    constructor(config) {
+        this.config = config;
+        if (config.mockResponse) {
+            return;
+        }
+        if (config.customProvider) {
+            this.provider = config.customProvider;
+        }
+        else if (config.provider === 'openai') {
+            if (!config.apiKey)
+                throw new Error('API Key required for OpenAI provider');
+            this.provider = new OpenAICompatibleProvider(config.apiKey, config.baseUrl);
+        }
+        else if (config.provider === 'ollama') {
+            this.provider = new OllamaProvider(config.baseUrl);
+        }
+        else {
+            // Default to anthropic
+            if (!config.apiKey)
+                throw new Error('API Key required for Anthropic provider');
+            this.provider = new AnthropicProvider(config.apiKey);
+        }
+    }
+    getStats() {
+        if (this.provider && 'stats' in this.provider) {
+            return this.provider.stats;
+        }
+        return { inputTokens: 0, outputTokens: 0, cachedTokens: 0 };
+    }
+    async generateDirect(prompt, systemPrompt) {
+        if (!this.provider) {
+            throw new Error(`AI Provider is not configured.`);
+        }
+        return this.provider.generate(prompt, systemPrompt, this.config.model);
+    }
+    async generateNodeCode(node, projectContext, writer, stack = 'nextjs') {
+        const stackInfo = getStackInstructions(stack);
+        if (node.type === 'setup-command') {
+            if (this.config.mockResponse) {
+                const mockCmd = this.config.mockResponse(node);
+                console.log(`${colors.cyan(colors.bold('[SETUP-COMMAND]'))} Would execute: ${mockCmd}`);
+                return mockCmd;
+            }
+            if (!this.provider) {
+                throw new Error(`AI Provider is not configured.`);
+            }
+            const prompt = `Project Context:
+${projectContext}
+
+Generate the exact terminal shell command to initialize/configure this project:
+- ID: ${node.id}
+- Type: ${node.type}
+- Flow: ${node.flow}
+- Stack: ${stack}
+- Target: Run setup tasks (e.g. create project or install packages)
+- Constraints:
+${node.constraints.map(c => `  - [${c.verify}] ${c.description}`).join('\n')}
+
+Generate ONLY the single-line shell command. Do not include explanation, comment, or markdown block wrapping.`;
+            const systemPrompt = `You are a DevOps engineer generating setup shell commands. Generate ONLY the executable terminal command text. Do not wrap in markdown or backticks.`;
+            const commandText = (await this.provider.generate(prompt, systemPrompt, this.config.model)).trim();
+            console.log(`${colors.cyan(colors.bold('[SETUP-COMMAND]'))} Executing command: "${commandText}"`);
+            // Conflict avoidance workaround for npx create-next-app .
+            const isCreateNextApp = commandText.includes('create-next-app');
+            const tempDir = path.join(process.cwd(), '../.pxml-temp-init');
+            const conflictItems = ['project.xml', 'pxml.xsd', 'flows', 'shared', 'packages', '.pxml', 'README.md', 'LICENSE', '.gitignore', 'bugs_history.xml', 'bugs.xsd', 'AGENTS.md', 'CLAUDE.md'];
+            const movedItems = [];
+            if (isCreateNextApp) {
+                if (!fs.existsSync(tempDir)) {
+                    fs.mkdirSync(tempDir, { recursive: true });
+                }
+                for (const item of conflictItems) {
+                    const itemPath = path.join(process.cwd(), item);
+                    if (fs.existsSync(itemPath)) {
+                        const destPath = path.join(tempDir, item);
+                        if (fs.existsSync(destPath)) {
+                            fs.rmSync(destPath, { recursive: true, force: true });
+                        }
+                        fs.renameSync(itemPath, destPath);
+                        movedItems.push({ src: destPath, dest: itemPath });
+                    }
+                }
+            }
+            try {
+                execSync(commandText, { stdio: 'inherit', cwd: process.cwd() });
+            }
+            finally {
+                // Restore moved files
+                if (isCreateNextApp) {
+                    for (const item of movedItems) {
+                        if (fs.existsSync(item.src)) {
+                            fs.renameSync(item.src, item.dest);
+                        }
+                    }
+                    fs.rmSync(tempDir, { recursive: true, force: true });
+                }
+            }
+            return commandText;
+        }
+        if (this.config.mockResponse) {
+            const mockCode = this.config.mockResponse(node);
+            writer.write(node.meta.path, mockCode);
+            this.logAIResponse(node.id, "MOCK PROMPT", mockCode);
+            return mockCode;
+        }
+        if (!this.provider) {
+            throw new Error(`AI Provider is not configured.`);
+        }
+        const prompt = this.buildPrompt(node, projectContext, stackInfo.promptNote);
+        const systemPrompt = stackInfo.systemPrompt;
+        const code = await this.provider.generate(prompt, systemPrompt, this.config.model);
+        let cleanedCode = this.cleanMarkdown(code);
+        // AI Code Verification & Self-Correction step
+        try {
+            const verificationPrompt = `Verify the correctness and deployment stability of the following generated code for node '${node.id}'.
+Destination Path: ${node.meta.path}
+Constraints:
+${node.constraints.map(c => `  - [${c.verify}] ${c.description}`).join('\n')}
+
+Generated Code:
+${cleanedCode}
+
+Analyze the code. Are there any bugs, schema inconsistencies, or missing imports/exports? 
+If there are issues, output the corrected code. If the code is fully stable, output the word "STABLE".`;
+            const verificationResponse = await this.provider.generate(verificationPrompt, "You are a senior code reviewer. Return ONLY the corrected code or the exact word 'STABLE'. Do not include markdown code blocks or explanations.", this.config.model);
+            const cleanedVerification = this.cleanMarkdown(verificationResponse);
+            if (cleanedVerification.toUpperCase() !== 'STABLE' && cleanedVerification.length > 20) {
+                console.log(`${colors.green(colors.bold('[VERIFY]'))} AI self-corrected generated code for node: ${node.id}`);
+                cleanedCode = cleanedVerification;
+            }
+        }
+        catch (err) {
+            console.warn(`[VERIFY WARNING] Self-verification step skipped: ${err.message}`);
+        }
+        writer.write(node.meta.path, cleanedCode);
+        this.logAIResponse(node.id, prompt, cleanedCode);
+        return cleanedCode;
+    }
+    async generateNodeTest(node, testPath, implementationCode, stack = 'nextjs', writer) {
+        if (this.config.mockResponse) {
+            const mockTest = `import { describe, it, expect } from 'vitest';\n// Mock test for ${node.id}\n`;
+            writer.write(testPath, mockTest);
+            return mockTest;
+        }
+        if (!this.provider) {
+            throw new Error(`AI Provider is not configured.`);
+        }
+        const testFileExists = fs.existsSync(testPath);
+        const currentTestCode = testFileExists ? fs.readFileSync(testPath, 'utf-8') : '';
+        const systemPrompt = `You are an expert QA and software testing engineer.
+Generate ONLY the complete test file contents. Do not include markdown code block syntax (like \`\`\`typescript) or explanations. Only output test code.
+CRITICAL: The test framework matches the stack. For JS/TS, use Vitest. For Python, use pytest. For Go, use testing. For C#, use xUnit or NUnit.
+CRITICAL: Never attempt to bind/start a live HTTP server or make real external network calls. Always mock inputs, mock requests, mock responses, and use virtual mock routing/internal test request objects (e.g., mock 'Request' in Next.js, 'httptest' in Go, 'responses' or mock frameworks in Python/C#).
+CRITICAL: For Next.js page components where 'searchParams' is a Promise (Next.js 15/React 19), always wrap the rendered component in '<Suspense>' inside the test to prevent suspension boundary errors.
+CRITICAL: In JS/TS component tests, always add '// @vitest-environment jsdom' at the very top of the test file. Tests are co-located in the same folder as code, so always use local relative paths (e.g. './page' or './route') for importing the implementation code. Never use path aliases (like '@/...').
+CRITICAL: When mocking constructors or classes (such as 'better-sqlite3' Database), always mock them using a standard JavaScript class (e.g., 'default: class { ... }') instead of an arrow function (e.g., 'default: () => ...') to prevent 'is not a constructor' TypeErrors.
+CRITICAL: To ensure the DOM is cleared between tests when Vitest globals are disabled, always import 'cleanup' and call 'afterEach(cleanup)' explicitly in the test file (e.g. 'import { cleanup } from "@testing-library/react"; afterEach(cleanup);').`;
+        const implExt = path.extname(node.meta.path);
+        const implBase = path.basename(node.meta.path, implExt);
+        let importStatement = '';
+        const stackLower = stack.toLowerCase();
+        if (stackLower.includes('python')) {
+            importStatement = `from .${implBase} import ...`;
+        }
+        else if (stackLower.includes('go') || stackLower === 'golang') {
+            importStatement = `// package matches other files in same directory`;
+        }
+        else {
+            importStatement = `import ${node.type === 'api-route' ? '* as handlerModule' : 'Component'} from './${implBase}';`;
+        }
+        let prompt = '';
+        if (testFileExists && currentTestCode) {
+            prompt = `Improve and update the existing test file for this node to match the updated implementation and specifications.
+Implementation File Path: ${node.meta.path}
+Implementation Code:
+\`\`\`
+${implementationCode}
+\`\`\`
+
+Test File Path: ${testPath}
+Existing Test Code:
+\`\`\`
+${currentTestCode}
+\`\`\`
+
+XML Specifications:
+- Input Fields: ${JSON.stringify(node.input)}
+- Output Fields: ${JSON.stringify(node.output)}
+- Import Directive: ${importStatement} (You MUST use exactly this relative import statement to import the code being tested. Do not use path aliases like '@/...' or other paths.)
+- Constraints: ${node.constraints.map(c => `[${c.verify}] ${c.description}`).join('\n')}
+
+Generate the updated complete test code. Do not include markdown wrapping or explanation.`;
+        }
+        else {
+            prompt = `Generate a comprehensive test file for the following implementation node based on its specification and code.
+Implementation File Path: ${node.meta.path}
+Implementation Code:
+\`\`\`
+${implementationCode}
+\`\`\`
+
+Target Test File Path: ${testPath}
+XML Specifications:
+- Input Fields: ${JSON.stringify(node.input)}
+- Output Fields: ${JSON.stringify(node.output)}
+- Import Directive: ${importStatement} (You MUST use exactly this relative import statement to import the code being tested. Do not use path aliases like '@/...' or other paths.)
+- Constraints: ${node.constraints.map(c => `[${c.verify}] ${c.description}`).join('\n')}
+- Defined Test Scenarios: ${JSON.stringify(node.tests)}
+
+Generate the complete test code. Do not include markdown wrapping or explanation.`;
+        }
+        const testCode = await this.provider.generate(prompt, systemPrompt, this.config.model);
+        const cleaned = this.cleanMarkdown(testCode);
+        writer.write(testPath, cleaned);
+        this.logAIResponse(node.id + "_test", prompt, cleaned);
+        return cleaned;
+    }
+    buildPrompt(node, projectContext, promptNote) {
+        return `Project Context:
+${projectContext}
+
+Generate implementation file for this node:
+- ID: ${node.id}
+- Type: ${node.type}
+- Flow: ${node.flow}
+- Destination Path: ${node.meta.path}
+- Input Fields: ${JSON.stringify(node.input)}
+- Output Fields: ${JSON.stringify(node.output)}
+- ${promptNote}
+- Constraints:
+${node.constraints.map(c => `  - [${c.verify}] ${c.description}${c.learnedFrom ? ` (Learned from bug: ${c.learnedFrom})` : ''}`).join('\n')}
+
+Generate the cleanest code matching this specification. Do not include markdown wrapping or explanation.`;
+    }
+    cleanMarkdown(code) {
+        let cleaned = code.replace(/^```[a-zA-Z]*\n/, '').replace(/\n```$/, '').trim();
+        // Remove any trailing AI skipped pattern comment or annotation
+        cleaned = cleaned.replace(/\s*→\s*skipped:.*$/gm, '');
+        cleaned = cleaned.replace(/\s*\/\/\s*skipped:.*$/gm, '');
+        return cleaned.trim();
+    }
+    logAIResponse(nodeId, prompt, response) {
+        const logsDir = path.resolve('.pxml', 'logs');
+        if (!fs.existsSync(logsDir)) {
+            fs.mkdirSync(logsDir, { recursive: true });
+        }
+        const safeNodeId = nodeId.replace(/:/g, '_');
+        const logPath = path.join(logsDir, `${safeNodeId}.log`);
+        const logContent = `--- PROMPT ---\n${prompt}\n\n--- RESPONSE ---\n${response}\n`;
+        fs.writeFileSync(logPath, logContent, 'utf-8');
+    }
+}
