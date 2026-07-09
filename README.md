@@ -95,6 +95,44 @@ This command initializes the folder structure:
 - `project.xml`: main config file that imports defined flows and local packages.
 - `flows/blog.xml`: defines individual nodes (e.g. `api.posts.create`) containing paths, constraints, and test scenarios.
 - `packages/`: directory to save local packages (initialized with a sample plugin `init-nextjs-project`).
+- `pxml.json`: manifest tracking the pxml version and installed packages.
+
+### 1.5. Install Packages (Optional)
+
+**Via manifest (recommended):** add the package URL to `pxml.json`, then run:
+
+```bash
+pxml install   # or: pxml i
+```
+
+`pxml.json` example:
+```json
+{
+  "pxml": "0.4.2",
+  "packages": {
+    "ui-ux-components-pxml": "https://github.com/two-tech-dev/ui-ux-components-pxml.git"
+  }
+}
+```
+
+This clones each package into `packages/<name>/` and binds its editor schema
+automatically (skips already-installed ones).
+
+**Ad-hoc:** install a single package without editing the manifest first:
+
+```bash
+pxml plugin url-git https://github.com/two-tech-dev/ui-ux-components-pxml.git
+```
+
+Both commands wire the package's `catalog.xml` into `.vscode/settings.json`
+so the editor suggests component names, flows and types immediately.
+
+After installation, add an `<import>` to `project.xml` and run `pxml validate`
+to generate an alias-aware enriched schema with exact `extends` autocomplete:
+
+```xml
+<import package="ui-ux-components-pxml" from="packages/ui-ux-components-pxml" as="uix" />
+```
 
 ### 2. Compile Specification (Compile)
 Ensure you set the environment variable `ANTHROPIC_API_KEY` (or `OPENAI_API_KEY` if using OpenAI):
@@ -180,8 +218,36 @@ After executing `pxml compile` or `pxml fix`, the CLI outputs a comprehensive to
 ### 9. Multi-Stack Support
 `pxml` supports non-JS/TS stacks (e.g. `python`, `rust`, `go`) by dynamically adjusting the code generator's prompt guidelines and style directives to match the `<project>` `stack` attribute.
 
-### 10. XML Schema Autocomplete & Validation
-To get XML autocomplete, inline documentation, and real-time syntax checking in editors like VS Code, associate your `.xml` files with the provided `pxml.xsd` schema:
+### 10. XML Editor Autocomplete (Auto-Sync)
+
+When your project imports a package (from git or local `packages/`),
+`pxml validate` automatically generates an **OASIS XML catalog** + **enriched
+schema** that enumerates the exact suggestions the editor should offer:
+
+- `flow` attribute → every flow across all imported packages (auth, ecommerce,
+  marketing, setup, …) plus your project's own flows.
+- `type` attribute → all known node types (ui-component, api-route,
+  setup-command, …).
+- `extends` attribute → every base component id prefixed with **your actual
+  import alias** (e.g. `uix:auth:login`, `uix:ecommerce:productGrid`).
+
+The enriched schema is a **union with `xs:string`** — custom values you type
+still validate, so you get suggestions without false errors.
+
+The catalog and `.vscode/settings.json` (`xml.catalogs`) are updated
+automatically on every `pxml validate` / `pxml compile` / `pxml migrate`,
+merging with any existing settings.
+
+**Works for both** `from="github:..."` and `from="packages/..."` imports.
+
+When you open a `project.xml` that references `pxml.xsd`, VS Code (Red Hat
+XML extension) resolves the catalog and uses the enriched schema — zero
+configuration needed.
+
+> If you prefer not to use the auto-sync, you can still bind the enriched
+> schema manually. The `ui-ux-components-pxml` package ships its own
+> `ui-ux-components-pxml.xsd` + `catalog.xml`; point your `xml.catalogs`
+> setting to the `catalog.xml` path.
 
 ### Controlling AI Test Generation
 You can control per-project or per-node whether the AI should automatically generate test files. Set `autogen-tests="false"` on the `<project>` or `<node>` element to skip AI test generation (saves token costs). Equivalent CLI flag: `--no-autogen-tests`.
