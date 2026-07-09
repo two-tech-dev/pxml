@@ -62,7 +62,23 @@
 | **Token cost** | Unpredictable (entire files in/out each turn) | Measured per-node, printed in dollars after every compile/fix |
 | **Delivery guarantee** | Best-effort (AI may skip constraints) | Test suite must pass before fix is accepted |
 
-## Installation
+### 4. Enterprise governance (managing AI projects at scale)
+
+**The problem with free-form prompts in a team:**
+- Developer A writes a blog CRUD prompt → gets a working API.
+- Developer B writes "blog CRUD" differently → gets a slightly different implementation.
+- Developer C wants to review what A and B actually asked the AI → there's no diff, no PR, no audit trail.
+- QA finds a bug → nobody knows which prompt version caused it.
+- New hire joins → reads 200 chat transcripts to understand the project.
+- CTO asks "how much did AI codegen cost this sprint" → zero data.
+
+**With pxml in an enterprise:**
+- Every "prompt" is a file in git → PR reviewable, diffable, revertable.
+- Schema (`pxml.xsd`) enforces consistent structure across all teams → no more "coding style by who wrote the prompt".
+- `bugs_history.xml` serves as a permanent institutional memory → bugs never resurface in any team's work.
+- `pxml compile` outputs per-node dollar cost → finance has actual data.
+- CI/CD pipeline runs `pxml validate && pxml compile --dry-run` on every PR → catches spec errors before they reach production.
+- Onboarding: new dev reads the `.xml` files → understands the entire app architecture in 10 minutes, not 2 days of chat archaeology.
 
 Install the compiler globally via npm:
 ```bash
