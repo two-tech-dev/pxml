@@ -2,6 +2,66 @@
 
 `pxml` is a structured XML DSL and compiler for AI-driven code generation. Instead of writing free-form prompts, you specify your web application architecture in XML, manage modifications using a Manifest, and allow the AI to perform local self-healing repairs at minimal cost.
 
+## Why pxml? (Free-form Prompts vs. pxml)
+
+### 1. Defining an API endpoint (same outcome, different approach)
+
+**Free-form prompt (what you type today):**
+> _"Create a Next.js API route at `app/api/posts/route.ts` that uses better-sqlite3, creates a 'posts' table if it doesn't exist, handles POST to insert a new post with title/content, and handles GET to list all posts. Make it dynamic, not cached."_
+
+**pxml (what you write instead):**
+```xml
+<node id="api.posts.create" type="api-route" flow="blog.write">
+  <meta><path>app/api/posts/route.ts</path></meta>
+  <input>
+    <field name="title" type="string" required="true" />
+    <field name="content" type="string" required="true" />
+  </input>
+  <test>
+    <given>
+      <body json="true">
+        <title>Hello</title>
+        <content>My post</content>
+      </body>
+    </given>
+    <expect><status>200</status></expect>
+  </test>
+</node>
+```
+
+**Why it matters:** The prompt is brittle — one typo, one ambiguous phrase, and the LLM generates broken or diverging code. The XML is a structured spec: the AI can only generate code that fits the declared schema, and the `<test>` block is automatically compiled into an executable Vitest file that proves the code works.
+
+### 2. Fixing a failing endpoint (compare the workflows)
+
+**Free-form (when you discover `/api/posts` returns 500):**
+1. Copy the error message into a new chat.
+2. Paste your entire `route.ts` file.
+3. Write: _"The POST handler is broken, fix it."_
+4. The LLM regenerates the **entire** file — possibly breaking other parts.
+5. No automated re-test; you manually verify in browser.
+6. Next session: AI forgets this ever happened.
+
+**pxml (`pxml fix --flow=blog.write`):**
+1. Failing test is already recorded in `.pxml/manifest.json`.
+2. AI receives only: the failing test name, the current source file, and the `bugs_history.xml` context.
+3. AI emits a **surgical SEARCH/REPLACE patch** changing only the broken lines.
+4. The test runner automatically re-executes the suite.
+5. Retries up to 3 times if the fix doesn't pass.
+6. Root cause is recorded in `bugs_history.xml` — future fixes will never reproduce it.
+
+### 3. Feature comparison
+
+| Feature | Free-form Prompting (ChatGPT, Cursor) | pxml Specification-driven Compilation |
+| :--- | :--- | :--- |
+| **Input format** | Paragraphs of natural language | Declarative XML with typed inputs, outputs, constraints |
+| **Validation** | None (you discover mistakes at runtime) | Schema validation before any LLM call (`pxml validate`) |
+| **Execution order** | AI guesses dependencies (often wrong) | Topological sort from explicit `<depends_on>` (guaranteed correct) |
+| **Tests** | You write tests separately (or skip them) | `<test>` blocks auto-compiled to Vitest, run automatically |
+| **Bug fixing** | Re-prompt with full file — regenerates everything, risks regression | Partial `SEARCH/REPLACE` patch — only broken lines change |
+| **Regression prevention** | None — each chat session starts from scratch | `bugs_history.xml` permanently attached to every fix prompt |
+| **Token cost** | Unpredictable (entire files in/out each turn) | Measured per-node, printed in dollars after every compile/fix |
+| **Delivery guarantee** | Best-effort (AI may skip constraints) | Test suite must pass before fix is accepted |
+
 ## Installation
 
 Install the compiler globally via npm:
