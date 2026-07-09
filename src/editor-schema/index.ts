@@ -130,12 +130,9 @@ ${typeEnum}
 ${
   extendsVals.length
     ? `  <xs:simpleType name="UiExtendsType">
-    <xs:union>
-      <xs:simpleType><xs:restriction base="xs:string">
+    <xs:restriction base="xs:string">
 ${extendsEnum}
-      </xs:restriction></xs:simpleType>
-      <xs:simpleType><xs:restriction base="xs:string"/></xs:simpleType>
-    </xs:union>
+    </xs:restriction>
   </xs:simpleType>
 `
     : ''
