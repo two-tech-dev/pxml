@@ -62,6 +62,35 @@ export function createDefaultManifest(cwd: string): void {
   });
 }
 
+// Copy a package's compiled component files (components/ui/**) into the project
+// so that `import X from '@/components/ui/...'` resolves.  Existing project files
+// are preserved so user overrides are never clobbered.  Returns # of files copied.
+export function syncPackageComponents(cwd: string, pkgDir: string): number {
+  const src = path.join(pkgDir, 'components', 'ui');
+  if (!fs.existsSync(src)) return 0;
+  const dest = path.join(cwd, 'components', 'ui');
+  let count = 0;
+
+  const walk = (rel: string) => {
+    const sdir = path.join(src, rel);
+    for (const entry of fs.readdirSync(sdir, { withFileTypes: true })) {
+      const childRel = rel ? path.join(rel, entry.name) : entry.name;
+      const sPath = path.join(src, childRel);
+      const dPath = path.join(dest, childRel);
+      if (entry.isDirectory()) {
+        walk(childRel);
+      } else {
+        if (fs.existsSync(dPath)) continue; // preserve existing override
+        fs.mkdirSync(path.dirname(dPath), { recursive: true });
+        fs.copyFileSync(sPath, dPath);
+        count++;
+      }
+    }
+  };
+  walk('');
+  return count;
+}
+
 export function installPackages(cwd: string): number {
   const m = readPxmlManifest(cwd);
   if (!m) {
@@ -78,23 +107,36 @@ export function installPackages(cwd: string): number {
   let count = 0;
   for (const [name, url] of entries) {
     const target = path.join(cwd, 'packages', name);
-    if (fs.existsSync(target)) {
-      console.log(`[INSTALL] ${name} already installed at packages/${name}, skipping.`);
-      continue;
-    }
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    console.log(`[INSTALL] Installing ${name} from ${url}...`);
-    execSync(`git clone --depth 1 ${url} ${target}`, { stdio: 'inherit' });
-    console.log(`[INSTALL] ${name} -> packages/${name}`);
+    const alreadyInstalled = fs.existsSync(target);
+    if (alreadyInstalled) {
+      console.log(`[INSTALL] ${name} already installed at packages/${name}, updating...`);
+      try {
+        execSync(`git -C ${target} pull --ff-only --depth 1`, { stdio: 'ignore' });
+      } catch {
+        // best-effort; proceed with whatever is on disk
+      }
+    } else {
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      console.log(`[INSTALL] Installing ${name} from ${url}...`);
+      execSync(`git clone --depth 1 ${url} ${target}`, { stdio: 'inherit' });
+      console.log(`[INSTALL] ${name} -> packages/${name}`);
 
-    // bind schema if the package ships a catalog
-    const cat = path.join(target, 'catalog.xml');
-    if (fs.existsSync(cat)) {
-      const rel = path.relative(cwd, cat).split(path.sep).join('/');
-      addCatalogToVscodeSettings(cwd, rel);
-      console.log(`[INSTALL] Schema catalog bound (${rel})`);
+      // bind schema if the package ships a catalog
+      const cat = path.join(target, 'catalog.xml');
+      if (fs.existsSync(cat)) {
+        const rel = path.relative(cwd, cat).split(path.sep).join('/');
+        addCatalogToVscodeSettings(cwd, rel);
+        console.log(`[INSTALL] Schema catalog bound (${rel})`);
+      }
+      count++;
     }
-    count++;
+
+    // Copy the package's real component .tsx files into the project so that
+    // imports like `@/components/ui/layout/Container` resolve (the package ships
+    // XML specs + compiled .tsx; the AI imports the .tsx via the '@/' alias).
+    // Existing files in the project are preserved (do not clobber overrides).
+    const n = syncPackageComponents(cwd, target);
+    if (n > 0) console.log(`[INSTALL] Synced ${n} component file(s) from ${name} into components/ui/`);
   }
   // sync editor schema after all packages installed
   try {
