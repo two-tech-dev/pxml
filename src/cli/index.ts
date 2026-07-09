@@ -9,6 +9,7 @@ import { PxmlRunner, getTestFilePath } from '../runner/index.js';
 import { FileWriter } from '../writer/index.js';
 import { runFixLoop } from './fix.js';
 import { syncEditorSchema, addCatalogToVscodeSettings } from '../editor-schema/index.js';
+import { createDefaultManifest, addPackageToManifest, installPackages } from '../install/index.js';
 import { execSync } from 'child_process';
 import { XMLParser } from 'fast-xml-parser';
 import * as fs from 'fs';
@@ -215,6 +216,7 @@ program
 `;
     fs.writeFileSync(path.join(pkgDir, 'catalog.xml'), initCatalog);
     addCatalogToVscodeSettings(cwd, 'packages/init-nextjs-project/catalog.xml');
+    createDefaultManifest(cwd);
 
     fs.writeFileSync(path.join(cwd, 'bugs_history.xml'), bugsHistoryXml, 'utf-8');
     console.log('Successfully initialized Next.js project with pxml templates.');
@@ -808,6 +810,7 @@ pluginCmd
       }
     }
     console.log(`Then: pxml validate   # clones/generates enriched schema + autocomplete`);
+    addPackageToManifest(cwd, name, url);
   });
 
 program
@@ -828,6 +831,19 @@ program
       console.log('[x] AI API Key (ANTHROPIC_API_KEY or OPENAI_API_KEY) is configured');
     } else {
       console.log('[ ] AI API Key is missing (needed for pxml compile/fix)');
+    }
+  });
+
+program
+  .command('install')
+  .alias('i')
+  .description('Install all packages listed in pxml.json (clones git repos into packages/)')
+  .action(() => {
+    const cwd = process.cwd();
+    const count = installPackages(cwd);
+    if (count > 0) {
+      console.log(`\n[INSTALL] ${count} package(s) installed.`);
+      console.log(`Now add <import> tags to project.xml and run: pxml validate`);
     }
   });
 
