@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:element name="project">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="import" minOccurs="0" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="src" type="xs:string" use="optional"/>
+            <xs:attribute name="package" type="xs:string" use="optional"/>
+            <xs:attribute name="from" type="xs:string" use="optional"/>
+            <xs:attribute name="as" type="xs:string" use="required"/>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="node" minOccurs="0" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="meta" minOccurs="0">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="path" type="xs:string"/>
+                    <xs:element name="depends_on" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+              <xs:element name="input" minOccurs="0">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="field" maxOccurs="unbounded">
+                      <xs:complexType>
+                        <xs:attribute name="name" type="xs:string" use="required"/>
+                        <xs:attribute name="type" type="UiNodeType" use="required"/>
+                        <xs:attribute name="required" type="xs:boolean" default="true"/>
+                        <xs:attribute name="format" type="xs:string" use="optional"/>
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+              <xs:element name="output" minOccurs="0">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="field" maxOccurs="unbounded">
+                      <xs:complexType>
+                        <xs:attribute name="name" type="xs:string" use="required"/>
+                        <xs:attribute name="type" type="xs:string" use="required"/>
+                        <xs:attribute name="required" type="xs:boolean" default="true"/>
+                        <xs:attribute name="format" type="xs:string" use="optional"/>
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+              <xs:element name="constraint" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:simpleContent>
+                    <xs:extension base="xs:string">
+                      <xs:attribute name="verify" default="static">
+                        <xs:simpleType>
+                          <xs:restriction base="xs:string">
+                            <xs:enumeration value="static"/>
+                            <xs:enumeration value="llm-judge"/>
+                          </xs:restriction>
+                        </xs:simpleType>
+                      </xs:attribute>
+                      <xs:attribute name="learned-from" type="xs:string" use="optional"/>
+                    </xs:extension>
+                  </xs:simpleContent>
+                </xs:complexType>
+              </xs:element>
+              <xs:element name="test" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="name" type="xs:string"/>
+                    <xs:element name="given" type="xs:anyType"/>
+                    <xs:element name="expect">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element name="status" type="xs:integer" minOccurs="0"/>
+                          <xs:element name="contains" type="xs:string" minOccurs="0"/>
+                          <xs:element name="match" type="xs:string" minOccurs="0"/>
+                        </xs:sequence>
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+            <xs:attribute name="id" type="xs:string" use="required"/>
+             <xs:attribute name="type" type="xs:string" use="required"/>
+            <xs:attribute name="flow" type="UiFlowType" use="required"/>
+            <xs:attribute name="extends" type="UiExtendsType" use="optional"/>
+            <xs:attribute name="autogen-tests" type="xs:boolean" use="optional"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+      <xs:attribute name="name" type="xs:string" use="required"/>
+      <xs:attribute name="stack" type="xs:string" use="required"/>
+      <xs:attribute name="version" type="xs:string" use="required"/>
+      <xs:attribute name="autogen-tests" type="xs:boolean" use="optional"/>
+    </xs:complexType>
+  </xs:element>
+
+
+  <xs:simpleType name="UiFlowType">
+    <xs:union>
+      <xs:simpleType><xs:restriction base="xs:string">
+        <xs:enumeration value="setup"/>
+        <xs:enumeration value="navigation"/>
+        <xs:enumeration value="blog.write"/>
+        <xs:enumeration value="blog.read"/>
+      </xs:restriction></xs:simpleType>
+      <xs:simpleType><xs:restriction base="xs:string"/></xs:simpleType>
+    </xs:union>
+  </xs:simpleType>
+  <xs:simpleType name="UiNodeType">
+    <xs:union>
+      <xs:simpleType><xs:restriction base="xs:string">
+        <xs:enumeration value="setup-command"/>
+        <xs:enumeration value="ui-component"/>
+        <xs:enumeration value="api-route"/>
+        <xs:enumeration value="db-model"/>
+        <xs:enumeration value="config-file"/>
+      </xs:restriction></xs:simpleType>
+      <xs:simpleType><xs:restriction base="xs:string"/></xs:simpleType>
+    </xs:union>
+  </xs:simpleType>
+  <xs:simpleType name="UiExtendsType">
+    <xs:union>
+      <xs:simpleType><xs:restriction base="xs:string">
+        <xs:enumeration value="nextjs-init:base-setup"/>
+      </xs:restriction></xs:simpleType>
+      <xs:simpleType><xs:restriction base="xs:string"/></xs:simpleType>
+    </xs:union>
+  </xs:simpleType>
+</xs:schema>

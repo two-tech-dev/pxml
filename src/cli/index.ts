@@ -157,6 +157,65 @@ program
     fs.writeFileSync(configPath, mainXml, 'utf-8');
     fs.writeFileSync(path.join(cwd, 'flows', 'blog.xml'), blogXml, 'utf-8');
     fs.writeFileSync(path.join(cwd, 'packages', 'init-nextjs-project', 'project.xml'), initNextjsProjectXml, 'utf-8');
+
+    // Generate enriched schema + catalog for init-nextjs-project package
+    const pkgDir = path.join(cwd, 'packages', 'init-nextjs-project');
+    const coreXsdBuf = fs.readFileSync(path.join(cwd, 'pxml.xsd'), 'utf-8');
+    const enriched = coreXsdBuf
+      .replace(
+        '<xs:attribute name="flow" type="xs:string" use="required"/>',
+        '<xs:attribute name="flow" type="UiFlowType" use="required"/>'
+      )
+      .replace(
+        '<xs:attribute name="type" type="xs:string" use="required"/>',
+        '<xs:attribute name="type" type="UiNodeType" use="required"/>'
+      )
+      .replace(
+        '<xs:attribute name="extends" type="xs:string" use="optional"/>',
+        '<xs:attribute name="extends" type="UiExtendsType" use="optional"/>'
+      )
+      .replace('</xs:schema>', `
+  <xs:simpleType name="UiFlowType">
+    <xs:union>
+      <xs:simpleType><xs:restriction base="xs:string">
+        <xs:enumeration value="setup"/>
+        <xs:enumeration value="navigation"/>
+        <xs:enumeration value="blog.write"/>
+        <xs:enumeration value="blog.read"/>
+      </xs:restriction></xs:simpleType>
+      <xs:simpleType><xs:restriction base="xs:string"/></xs:simpleType>
+    </xs:union>
+  </xs:simpleType>
+  <xs:simpleType name="UiNodeType">
+    <xs:union>
+      <xs:simpleType><xs:restriction base="xs:string">
+        <xs:enumeration value="setup-command"/>
+        <xs:enumeration value="ui-component"/>
+        <xs:enumeration value="api-route"/>
+        <xs:enumeration value="db-model"/>
+        <xs:enumeration value="config-file"/>
+      </xs:restriction></xs:simpleType>
+      <xs:simpleType><xs:restriction base="xs:string"/></xs:simpleType>
+    </xs:union>
+  </xs:simpleType>
+  <xs:simpleType name="UiExtendsType">
+    <xs:union>
+      <xs:simpleType><xs:restriction base="xs:string">
+        <xs:enumeration value="nextjs-init:base-setup"/>
+      </xs:restriction></xs:simpleType>
+      <xs:simpleType><xs:restriction base="xs:string"/></xs:simpleType>
+    </xs:union>
+  </xs:simpleType>
+</xs:schema>`);
+    fs.writeFileSync(path.join(pkgDir, 'init-nextjs-project.xsd'), enriched);
+    const initCatalog = `<?xml version="1.0" encoding="UTF-8"?>
+<catalog xmlns="urn:oasis:names:tc:entity:xmlns:xml:catalog">
+  <system systemId="pxml.xsd" uri="init-nextjs-project.xsd"/>
+</catalog>
+`;
+    fs.writeFileSync(path.join(pkgDir, 'catalog.xml'), initCatalog);
+    addCatalogToVscodeSettings(cwd, 'packages/init-nextjs-project/catalog.xml');
+
     fs.writeFileSync(path.join(cwd, 'bugs_history.xml'), bugsHistoryXml, 'utf-8');
     console.log('Successfully initialized Next.js project with pxml templates.');
   });
