@@ -191,13 +191,17 @@ export class PxmlParser {
         return `${namespace}:${id}`;
       };
 
+      // Cross-import references (value already contains a colon) must NOT be
+      // prefixed — they refer to nodes in a different import / top-level.
+      const prefixIfPlain = (v: string) => (v.includes(':') ? v : prefixId(v));
+
       return {
         ...node,
         id: prefixId(node.id),
-        extends: node.extends ? prefixId(node.extends) : undefined,
+        extends: node.extends ? prefixIfPlain(node.extends) : undefined,
         meta: {
           ...node.meta,
-          depends_on: node.meta.depends_on.map(prefixId)
+          depends_on: node.meta.depends_on.map(d => prefixIfPlain(d))
         }
       };
     };
@@ -296,6 +300,14 @@ export class PxmlParser {
       }
 
       if (!node.extends) {
+        resolvedMap.set(id, node);
+        return node;
+      }
+
+      // Cross-import extends (value contains a colon whose parent is not in
+      // the current scope) — defer to the top-level parse where all imports
+      // are flattened.  Return the child unmerged, it will be resolved later.
+      if (node.extends.includes(':') && !nodeMap.has(node.extends)) {
         resolvedMap.set(id, node);
         return node;
       }

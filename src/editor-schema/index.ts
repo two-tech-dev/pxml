@@ -45,13 +45,13 @@ export function syncEditorSchema(cwd: string, project: Project): void {
   const hasPackage = /from\s*=\s*["'](github:|packages\/)/.test(raw);
   if (!hasPackage) return;
 
-  // Resolve the user's import alias (e.g. `as="uix"`) so we can enumerate the
-  // EXACT `extends` values (alias:category:component) the editor should suggest.
-  let alias: string | null = null;
+  // Resolve ALL package import aliases so we can enumerate the EXACT
+  // `extends` values (alias:category:component) for every imported package.
+  const aliases: string[] = [];
   for (const el of raw.match(/<import\b[^>]*>/g) ?? []) {
     if (/from\s*=\s*["'](github:|packages\/)/.test(el)) {
       const am = el.match(/\bas\s*=\s*["']([^"']+)["']/);
-      if (am) { alias = am[1]; break; }
+      if (am && !aliases.includes(am[1])) aliases.push(am[1]);
     }
   }
 
@@ -59,13 +59,13 @@ export function syncEditorSchema(cwd: string, project: Project): void {
   const types = [...new Set(project.nodes.map(n => n.type))].filter(Boolean).sort();
   if (flows.length === 0) return;
 
-  // Exact extendable base-component ids: those belonging to the imported
+  // Exact extendable base-component ids: those belonging to any imported
   // package (id starts with `<alias>:` and contains at least two colons).
-  const extendsVals = alias
+  const extendsVals = aliases.length > 0
     ? [...new Set(
         project.nodes
           .map(n => n.id)
-          .filter(id => id.startsWith(`${alias}:`) && (id.match(/:/g) ?? []).length >= 2)
+          .filter(id => aliases.some(a => id.startsWith(`${a}:`) && (id.match(/:/g) ?? []).length >= 2))
       )].sort()
     : [];
 
