@@ -381,7 +381,7 @@ program
 
     // Batch test generation — one AI call per chunk (max 5 nodes) to avoid
     // context-window limits.  Falls back to per-node on failure.
-    const MAX_BATCH = 3;
+    const MAX_BATCH = 2;
     for (let i = 0; i < pendingTestNodes.length; i += MAX_BATCH) {
       const chunk = pendingTestNodes.slice(i, i + MAX_BATCH);
       console.log(`${colors.magenta(colors.bold('[TESTGEN]'))} Tests ${i + 1}–${Math.min(i + MAX_BATCH, pendingTestNodes.length)} / ${pendingTestNodes.length}...`);
