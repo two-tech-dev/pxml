@@ -289,6 +289,7 @@ program
     } catch { /* best-effort */ }
 
     const compiledNodeIds: string[] = [];
+    const allTestFiles: string[] = [];
 
     for (const nodeId of order) {
       if (extendedNodeIds.has(nodeId)) {
@@ -357,6 +358,7 @@ program
             console.log(`${colors.magenta(colors.bold('[TESTGEN]'))} Generating/Updating test file at: ${testFilePath}`);
             await codegen.generateNodeTest(node, absTestFilePath, code, project.stack, writer);
           }
+          allTestFiles.push(absTestFilePath);
         }
 
         manifest.setNode(nodeId, {
@@ -379,64 +381,42 @@ program
     }
 
     if (compiledNodeIds.length > 0) {
-      console.log(colors.cyan(colors.bold('\nRunning tests for compiled nodes...')));
       const runner = new PxmlRunner(cwd, writer);
+      const bugContext = buildBugContext(cwd);
       let allPassed = true;
-      for (const nodeId of compiledNodeIds) {
-        const node = project.nodes.find(n => n.id === nodeId)!;
-        if (node.type === 'setup-command' || node.type === 'config-file') {
-          continue;
+
+      // Single batch test run — run ALL test files at once, not per-node.
+      const testFiles = allTestFiles.filter(f => fs.existsSync(f));
+      if (testFiles.length > 0) {
+        console.log(colors.cyan(colors.bold(`\nRunning ${testFiles.length} test file(s)...`)));
+        const testCmd = `npx vitest run ${testFiles.join(' ')}`;
+        let batchPassed = false;
+        try {
+          execSync(testCmd, { stdio: 'pipe', cwd });
+          batchPassed = true;
+        } catch {
+          batchPassed = false;
         }
-        console.log(`${colors.blue(colors.bold('[TEST]'))} Running tests for node: ${node.id}`);
-        const res = runner.runNodeTests(node, project.stack);
-
-        const existing = manifest.getNode(node.id);
-        if (existing) {
-          manifest.setNode(node.id, {
-            ...existing,
-            last_test_run: res.results
-          });
-          manifest.save();
-        }
-
-        if (!res.passed) {
-          console.log(`${colors.red(colors.bold('[FAIL]'))} Node ${node.id} failed tests. Triggering self-healing...`);
-          
-          let bugContext = '';
-          const bugsHistoryPath = path.join(cwd, 'bugs_history.xml');
-          if (fs.existsSync(bugsHistoryPath)) {
-            try {
-              const historyXml = fs.readFileSync(bugsHistoryPath, 'utf-8');
-              const optionsXml = {
-                ignoreAttributes: false,
-                attributeNamePrefix: '@_',
-                allowBooleanAttributes: true,
-                parseAttributeValue: true,
-              };
-              const fastXml = new XMLParser(optionsXml);
-              const parsed = fastXml.parse(historyXml);
-              if (parsed.bugs && parsed.bugs.bug) {
-                const rawBugs = Array.isArray(parsed.bugs.bug) ? parsed.bugs.bug : [parsed.bugs.bug];
-                let historyText = '\n--- Historical Bug Prevention Checklist ---\n';
-                for (const bug of rawBugs) {
-                  const flowAttr = bug['@_flow'] || 'general';
-                  const desc = typeof bug === 'object' ? bug['#text'] || bug.description || '' : String(bug);
-                  historyText += `- [Flow: ${flowAttr}] Bug ID ${bug['@_id']}: ${desc.trim()}\n`;
-                }
-                bugContext = historyText;
-              }
-            } catch (err: any) {}
-          }
-
-          const success = await runFixLoop(node, cwd, manifest, codegen, runner, writer, undefined, bugContext, false, project.stack);
-          if (!success) {
-            allPassed = false;
-            console.log(`${colors.red(colors.bold('[FAIL]'))} Node ${node.id} failed to self-heal.`);
-          } else {
-            console.log(`${colors.green(colors.bold('[PASS]'))} Node ${node.id} healed successfully.`);
-          }
+        if (batchPassed) {
+          console.log(colors.green(colors.bold('\n[TEST] All tests passed.')));
         } else {
-          console.log(`${colors.green(colors.bold('[PASS]'))} Node ${node.id} tests passed.`);
+          console.log(colors.yellow(colors.bold('\n[TEST] Some tests failed. Attempting self-healing...')));
+          // Fix each failing node in dependency order
+          for (const nodeId of compiledNodeIds) {
+            const node = project.nodes.find(n => n.id === nodeId)!;
+            if (node.type === 'setup-command' || node.type === 'config-file') continue;
+            const res = runner.runNodeTests(node, project.stack);
+            if (!res.passed) {
+              console.log(`${colors.red(colors.bold('[FIX]'))} Node ${node.id} failed. Self-healing...`);
+              const success = await runFixLoop(node, cwd, manifest, codegen, runner, writer, undefined, bugContext, true, project.stack);
+              if (!success) {
+                allPassed = false;
+                console.log(`${colors.red(colors.bold('[FAIL]'))} Node ${node.id} could not self-heal.`);
+              } else {
+                console.log(`${colors.green(colors.bold('[PASS]'))} Node ${node.id} healed.`);
+              }
+            }
+          }
         }
       }
       
@@ -880,6 +860,30 @@ program
       console.log(`Now add <import> tags to project.xml and run: pxml validate`);
     }
   });
+
+function buildBugContext(cwd: string): string {
+  let ctx = '';
+  const bugsHistoryPath = path.join(cwd, 'bugs_history.xml');
+  if (fs.existsSync(bugsHistoryPath)) {
+    try {
+      const historyXml = fs.readFileSync(bugsHistoryPath, 'utf-8');
+      const optionsXml = { ignoreAttributes: false, attributeNamePrefix: '@_', allowBooleanAttributes: true, parseAttributeValue: true };
+      const fastXml = new XMLParser(optionsXml);
+      const parsed = fastXml.parse(historyXml);
+      if (parsed.bugs && parsed.bugs.bug) {
+        const rawBugs = Array.isArray(parsed.bugs.bug) ? parsed.bugs.bug : [parsed.bugs.bug];
+        let historyText = '\n--- Historical Bug Prevention Checklist ---\n';
+        for (const bug of rawBugs) {
+          const flowAttr = bug['@_flow'] || 'general';
+          const desc = typeof bug === 'object' ? bug['#text'] || bug.description || '' : String(bug);
+          historyText += `- [Flow: ${flowAttr}] Bug ID ${bug['@_id']}: ${desc.trim()}\n`;
+        }
+        ctx = historyText;
+      }
+    } catch {}
+  }
+  return ctx;
+}
 
 function injectHistoricalBugs(nodes: any[], cwd: string) {
   const bugsHistoryPath = path.join(cwd, 'bugs_history.xml');
