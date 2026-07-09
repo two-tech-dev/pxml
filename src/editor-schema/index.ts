@@ -2,6 +2,34 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Project } from '../parser/schema.js';
 
+const SKIP_DIRS = new Set(['.pxml', 'node_modules', '.git', 'dist']);
+
+/**
+ * Walk all XML files under `dir` and return every distinct
+ * ``xsi:noNamespaceSchemaLocation`` value found.
+ */
+function collectSchemaLocations(dir: string): string[] {
+  const seen = new Set<string>();
+  const walk = (d: string) => {
+    let dirents: fs.Dirent[];
+    try { dirents = fs.readdirSync(d, { withFileTypes: true }) as any; } catch { return; }
+    for (const e of dirents) {
+      const full = path.join(d, e.name);
+      if (e.isDirectory()) {
+        if (!SKIP_DIRS.has(e.name)) walk(full);
+      } else if (e.name.endsWith('.xml')) {
+        try {
+          const txt = fs.readFileSync(full, 'utf-8');
+          const m = txt.match(/noNamespaceSchemaLocation="([^"]+)"/);
+          if (m) seen.add(m[1]);
+        } catch { /* skip unreadable */ }
+      }
+    }
+  };
+  walk(dir);
+  return [...seen];
+}
+
 /**
  * Zero-config editor support for imported pxml packages.
  *
@@ -131,9 +159,18 @@ ${extendsEnum}
 
   fs.writeFileSync(path.join(schemaDir, 'pxml.enriched.xsd'), core);
 
+  // Collect every distinct noNamespaceSchemaLocation across the project so the
+  // catalog remaps ALL of them (not just the root pxml.xsd).  This ensures
+  // flow files (``../pxml.xsd``) and package files (``../../pxml.xsd``)
+  // also benefit from the enriched schema.
+  const schemaLocations = collectSchemaLocations(cwd);
+  if (!schemaLocations.includes('pxml.xsd')) schemaLocations.unshift('pxml.xsd');
+  const sysEntries = schemaLocations
+    .map(loc => `  <system systemId="${loc}" uri="schemas/pxml.enriched.xsd"/>`)
+    .join('\n');
   const catalog = `<?xml version="1.0" encoding="UTF-8"?>
 <catalog xmlns="urn:oasis:names:tc:entity:xmlns:xml:catalog">
-  <system systemId="pxml.xsd" uri="schemas/pxml.enriched.xsd"/>
+${sysEntries}
 </catalog>
 `;
   fs.writeFileSync(path.join(pxmldir, 'catalog.xml'), catalog);
