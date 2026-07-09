@@ -1,6 +1,6 @@
 {
   "name": "@two-tech-dev/pxml",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "description": "XML DSL and compiler for AI-driven project building",
   "type": "module",
   "main": "dist/index.js",

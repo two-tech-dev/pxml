@@ -1,7 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import { addCatalogToVscodeSettings } from '../editor-schema/index.js';
+import { addCatalogToVscodeSettings, syncEditorSchema } from '../editor-schema/index.js';
+import { PxmlParser } from '../parser/index.js';
 
 const MANIFEST = 'pxml.json';
 
@@ -94,6 +95,14 @@ export function installPackages(cwd: string): number {
       console.log(`[INSTALL] Schema catalog bound (${rel})`);
     }
     count++;
+  }
+  // sync editor schema after all packages installed
+  try {
+    const parser = new PxmlParser();
+    const proj = parser.parse(path.join(cwd, 'project.xml'));
+    syncEditorSchema(cwd, proj);
+  } catch {
+    // best-effort; editor schema will sync on next pxml validate
   }
   return count;
 }
