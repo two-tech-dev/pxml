@@ -147,13 +147,16 @@ pxml compile --provider openai --model gpt-4o
 # Or using Ollama provider locally
 pxml compile --provider ollama --model llama3 --baseUrl http://localhost:11434
 
-# Disable automatic AI test generation to save tokens
-pxml compile --no-autogen-tests
+# Save tokens:
+pxml compile --no-autogen-tests           # skip AI-generated test files
+pxml compile --dry-run                     # show execution plan without AI calls
 ```
-Or check the compile execution plan with `--dry-run`:
-```bash
-pxml compile --dry-run
-```
+**Token optimization enabled by default:**
+- **Context by dependency** — only files from `depends_on` nodes are fed to the AI
+  (was: all previously compiled files).
+- **File cap** — each file is truncated at ~2000 characters with an elision marker.
+- **AI self-verification is opt-in** — pass `--verify` to enable it (doubles token
+  cost per node). Default: skip, saving ~2× tokens per node.
 
 ### 3. Run Self-Generated Tests (Test)
 ```bash
@@ -221,8 +224,8 @@ After executing `pxml compile` or `pxml fix`, the CLI outputs a comprehensive to
 ### 10. XML Editor Autocomplete (Auto-Sync)
 
 When your project imports a package (from git or local `packages/`),
-`pxml validate` automatically generates an **OASIS XML catalog** + **enriched
-schema** that enumerates the exact suggestions the editor should offer:
+`pxml validate` / `pxml i` automatically **overwrites `pxml.xsd`** with an
+enriched version that enumerates the exact suggestions your editor should offer:
 
 - `flow` attribute → every flow across all imported packages (auth, ecommerce,
   marketing, setup, …) plus your project's own flows.
@@ -230,24 +233,17 @@ schema** that enumerates the exact suggestions the editor should offer:
   setup-command, …).
 - `extends` attribute → every base component id prefixed with **your actual
   import alias** (e.g. `uix:auth:login`, `uix:ecommerce:productGrid`).
+  Pure `xs:enumeration` — the editor suggests only valid targets.
+- `UiFlowType` and `UiNodeType` use a union with `xs:string`, so custom values
+  still validate without false errors.
 
-The enriched schema is a **union with `xs:string`** — custom values you type
-still validate, so you get suggestions without false errors.
+**No LSP/IDE configuration needed.** The enriched schema replaces `pxml.xsd`
+on disk — every editor that reads the file (lemminx, coc-xml, VS Code XML,
+IntelliJ) gets the extended type definitions automatically. No OASIS catalog,
+no `.vscode/settings.json`, no LSP init options required.
 
-The catalog and `.vscode/settings.json` (`xml.catalogs`) are updated
-automatically on every `pxml validate` / `pxml compile` / `pxml migrate`,
-merging with any existing settings.
-
-**Works for both** `from="github:..."` and `from="packages/..."` imports.
-
-When you open a `project.xml` that references `pxml.xsd`, VS Code (Red Hat
-XML extension) resolves the catalog and uses the enriched schema — zero
-configuration needed.
-
-> If you prefer not to use the auto-sync, you can still bind the enriched
-> schema manually. The `ui-ux-components-pxml` package ships its own
-> `ui-ux-components-pxml.xsd` + `catalog.xml`; point your `xml.catalogs`
-> setting to the `catalog.xml` path.
+The original `pxml.xsd` is backed up to `.pxml/schemas/pxml.core.xsd` on the
+first run.  Re-run `pxml validate` to regenerate (idempotent).
 
 ### Controlling AI Test Generation
 You can control per-project or per-node whether the AI should automatically generate test files. Set `autogen-tests="false"` on the `<project>` or `<node>` element to skip AI test generation (saves token costs). Equivalent CLI flag: `--no-autogen-tests`.
