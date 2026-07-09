@@ -379,20 +379,31 @@ program
       }
     }
 
-    // Generate ONE combined test file for all pending nodes.
-    let combinedTestPath = '';
+    // Generate combined test files — one per chunk (TEST_CHUNK nodes) so each
+    // request stays small enough to avoid provider timeouts on slow local models.
+    const TEST_CHUNK = 2;
+    const combinedTestPaths: string[] = [];
     if (pendingTestNodes.length > 0) {
-      console.log(`${colors.magenta(colors.bold('[TESTGEN]'))} Generating combined test file for ${pendingTestNodes.length} node(s)...`);
-      try {
-        combinedTestPath = await codegen.generateCombinedTest(
-          pendingTestNodes.map(pt => pt.node), project.stack, writer, cwd
-        );
-      } catch (err: any) {
-        console.warn(`[TESTGEN] Combined test failed (${err.message}), falling back to per-node...`);
-        for (const pt of pendingTestNodes) {
-          const testPath = getTestFilePath(pt.node.meta.path, project.stack);
-          console.log(`${colors.magenta(colors.bold('[TESTGEN]'))} Generating test for: ${pt.node.id}`);
-          await codegen.generateNodeTest(pt.node, path.resolve(cwd, testPath), pt.code, project.stack, writer);
+      const allNodes = pendingTestNodes.map(pt => pt.node);
+      for (let i = 0; i < allNodes.length; i += TEST_CHUNK) {
+        const chunk = allNodes.slice(i, i + TEST_CHUNK);
+        const chunkIdx = i / TEST_CHUNK;
+        console.log(`${colors.magenta(colors.bold('[TESTGEN]'))} Generating combined test file ${chunkIdx} (${chunk.length} node(s))...`);
+        try {
+          const p = await codegen.generateCombinedTest(chunk, project.stack, writer, cwd, chunkIdx);
+          combinedTestPaths.push(p);
+        } catch (err: any) {
+          console.warn(`[TESTGEN] Combined test chunk ${chunkIdx} failed (${err.message}), falling back to per-node...`);
+          for (const node of chunk) {
+            const testPath = getTestFilePath(node.meta.path, project.stack);
+            const code = pendingTestNodes.find(pt => pt.node.id === node.id)?.code || '';
+            try {
+              console.log(`${colors.magenta(colors.bold('[TESTGEN]'))} Generating test for: ${node.id}`);
+              await codegen.generateNodeTest(node, path.resolve(cwd, testPath), code, project.stack, writer);
+            } catch (e2: any) {
+              console.error(`[TESTGEN] ${colors.red(`Skipping test for ${node.id}: ${e2.message}`)}`);
+            }
+          }
         }
       }
     }
@@ -402,10 +413,11 @@ program
       const bugContext = buildBugContext(cwd);
       let allPassed = true;
 
-      // Single test run — prefer the combined test file, fall back to per-node files.
+      // Single test run — prefer combined test files, fall back to per-node files.
       let testTarget: string;
-      if (combinedTestPath && fs.existsSync(combinedTestPath)) {
-        testTarget = combinedTestPath;
+      const existingCombined = combinedTestPaths.filter(f => fs.existsSync(f));
+      if (existingCombined.length > 0) {
+        testTarget = existingCombined.join(' ');
       } else {
         const perNodeFiles = pendingTestNodes.map(pt => path.resolve(cwd, getTestFilePath(pt.node.meta.path, project.stack))).filter(f => fs.existsSync(f));
         testTarget = perNodeFiles.join(' ');

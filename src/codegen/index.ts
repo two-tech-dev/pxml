@@ -108,7 +108,7 @@ export class OpenAICompatibleProvider implements AIProvider {
     while (attempt < maxRetries) {
       attempt++;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 seconds timeout
+      const timeoutId = setTimeout(() => controller.abort(), Number(process.env.PXML_API_TIMEOUT_MS) || 90000);
 
       try {
         const response = await fetch(`${this.baseUrl}/chat/completions`, {
@@ -173,7 +173,7 @@ export class OllamaProvider implements AIProvider {
     while (attempt < maxRetries) {
       attempt++;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 seconds timeout
+      const timeoutId = setTimeout(() => controller.abort(), Number(process.env.PXML_API_TIMEOUT_MS) || 90000);
 
       try {
         const response = await fetch(`${this.baseUrl}/api/generate`, {
@@ -471,8 +471,8 @@ Generate the complete test code. Do not include markdown wrapping or explanation
     return cleaned;
   }
 
-  async generateCombinedTest(nodes: Node[], stack: string, writer: FileWriter, cwd: string): Promise<string> {
-    const combinedPath = '.pxml/all.test.ts';
+  async generateCombinedTest(nodes: Node[], stack: string, writer: FileWriter, cwd: string, index = 0): Promise<string> {
+    const combinedPath = `.pxml/all.${index}.test.ts`;
     if (this.config.mockResponse || !this.provider) {
       writer.write(combinedPath, `// Combined mock test for ${nodes.length} nodes\n`);
       return combinedPath;
