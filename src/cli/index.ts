@@ -8,7 +8,7 @@ import { PxmlCodegen } from '../codegen/index.js';
 import { PxmlRunner, getTestFilePath } from '../runner/index.js';
 import { FileWriter } from '../writer/index.js';
 import { runFixLoop } from './fix.js';
-import { syncEditorSchema } from '../editor-schema/index.js';
+import { syncEditorSchema, addCatalogToVscodeSettings } from '../editor-schema/index.js';
 import { execSync } from 'child_process';
 import { XMLParser } from 'fast-xml-parser';
 import * as fs from 'fs';
@@ -710,13 +710,54 @@ program
   }
 });
 
+const pluginCmd = program
+  .command('plugin')
+  .description('Manage pxml packages/plugins');
+
+pluginCmd
+  .command('url-git <url>')
+  .description('Clone a pxml package from a git URL into ./packages/<name> and wire its editor schema')
+  .option('--name <name>', 'Override the target folder name under packages/')
+  .option('--no-schema', 'Skip binding the package schema to .vscode/settings.json')
+  .action((url: string, options: { name?: string; schema?: boolean }) => {
+    const cwd = process.cwd();
+    const seg = url.replace(/\.git$/, '').split(/[/:]/).pop() || 'package';
+    const name = options.name || seg;
+    const target = path.join(cwd, 'packages', name);
+
+    if (fs.existsSync(target)) {
+      console.error(`Package directory already exists: ${target}`);
+      process.exit(1);
+    }
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+
+    console.log(`[PLUGIN] Cloning ${url} -> packages/${name} ...`);
+    execSync(`git clone --depth 1 ${url} ${target}`, { stdio: 'inherit' });
+
+    console.log(`[PLUGIN] Installed "${name}" to packages/${name}`);
+    console.log(`Add to project.xml:`);
+    console.log(`  <import package="${name}" from="packages/${name}" as="uix" />`);
+
+    if (options.schema !== false) {
+      const cat = path.join(target, 'catalog.xml');
+      if (fs.existsSync(cat)) {
+        const rel = path.relative(cwd, cat).split(path.sep).join('/');
+        addCatalogToVscodeSettings(cwd, rel);
+        console.log(`[PLUGIN] Editor schema bound (xml.catalogs -> ${rel})`);
+      } else {
+        console.log(`[PLUGIN] No catalog.xml in package; run \`pxml validate\` to auto-generate editor schema.`);
+      }
+    }
+    console.log(`Then: pxml validate   # clones/generates enriched schema + autocomplete`);
+  });
+
 program
 .command('doctor')
   .description('Diagnostics checklist (configurations, env keys, databases)')
   .action(() => {
     console.log('--- Doctor Check ---');
     console.log(`[x] Node version: ${process.version}`);
-    
+
     const projectXml = path.join(process.cwd(), 'project.xml');
     if (fs.existsSync(projectXml)) {
       console.log('[x] project.xml exists');

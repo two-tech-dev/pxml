@@ -3,31 +3,53 @@ import * as path from 'path';
 import { Project } from '../parser/schema.js';
 
 /**
- * Zero-config editor support for git-imported pxml packages.
+ * Zero-config editor support for imported pxml packages.
  *
- * When a project imports a package via `from="github:owner/repo"`, pxml clones
- * it under `.pxml/packages/github/...`. This function derives an "enriched"
- * schema from the *actual* cloned component nodes (enumerating their `flow`s
+ * When a project imports a package via `from="github:owner/repo"` (cloned to
+ * `.pxml/packages/github/...`) or via `from="packages/owner/repo"` (installed
+ * locally, e.g. by `pxml plugin url-git`), this function derives an "enriched"
+ * schema from the *actual* imported component nodes (enumerating their `flow`s
  * and `type`s) and wires it into the editor through an OASIS XML catalog +
  * VS Code `xml.catalogs` setting. The base `pxml.xsd` is remapped so every
  * `project.xml` referencing it also gets component-aware autocomplete.
  *
- * `flow`/`type` use a union with `xs:string`, so values outside the enumerated
- * set still validate (no false errors) while editors still suggest them.
+ * `flow`/`type`/`extends` use a union with `xs:string`, so values outside the
+ * enumerated set still validate (no false errors) while editors still suggest
+ * them. The exact `extends` values are enumerated using the user's import alias.
  */
+export function addCatalogToVscodeSettings(cwd: string, relCatalogPath: string): void {
+  const vscodeDir = path.join(cwd, '.vscode');
+  fs.mkdirSync(vscodeDir, { recursive: true });
+  const settingsPath = path.join(vscodeDir, 'settings.json');
+  let settings: Record<string, unknown> = {};
+  if (fs.existsSync(settingsPath)) {
+    try {
+      settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+    } catch {
+      settings = {};
+    }
+  }
+  const catalogs = Array.isArray(settings['xml.catalogs']) ? [...(settings['xml.catalogs'] as string[])] : [];
+  // normalise separators so the path matches regardless of OS
+  const norm = relCatalogPath.split(path.sep).join('/');
+  if (!catalogs.includes(norm)) catalogs.push(norm);
+  settings['xml.catalogs'] = catalogs;
+  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
+}
+
 export function syncEditorSchema(cwd: string, project: Project): void {
-  // The parser flattens and clears `imports`, so detect a github import from
-  // the raw project.xml instead (the package is cloned under .pxml/packages/github).
+  // The parser flattens and clears `imports`, so detect a package import from
+  // the raw project.xml instead (github clone OR local `packages/...` install).
   const projXmlPath = path.join(cwd, 'project.xml');
   const raw = fs.existsSync(projXmlPath) ? fs.readFileSync(projXmlPath, 'utf-8') : '';
-  const hasGithub = /from\s*=\s*["']github:/.test(raw);
-  if (!hasGithub) return;
+  const hasPackage = /from\s*=\s*["'](github:|packages\/)/.test(raw);
+  if (!hasPackage) return;
 
   // Resolve the user's import alias (e.g. `as="uix"`) so we can enumerate the
   // EXACT `extends` values (alias:category:component) the editor should suggest.
   let alias: string | null = null;
   for (const el of raw.match(/<import\b[^>]*>/g) ?? []) {
-    if (/from\s*=\s*["']github:/.test(el)) {
+    if (/from\s*=\s*["'](github:|packages\/)/.test(el)) {
       const am = el.match(/\bas\s*=\s*["']([^"']+)["']/);
       if (am) { alias = am[1]; break; }
     }
@@ -116,19 +138,5 @@ ${extendsEnum}
 `;
   fs.writeFileSync(path.join(pxmldir, 'catalog.xml'), catalog);
 
-  const vscodeDir = path.join(cwd, '.vscode');
-  fs.mkdirSync(vscodeDir, { recursive: true });
-  const settingsPath = path.join(vscodeDir, 'settings.json');
-  let settings: Record<string, unknown> = {};
-  if (fs.existsSync(settingsPath)) {
-    try {
-      settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-    } catch {
-      settings = {};
-    }
-  }
-  const catalogs = Array.isArray(settings['xml.catalogs']) ? [...(settings['xml.catalogs'] as string[])] : [];
-  if (!catalogs.includes('.pxml/catalog.xml')) catalogs.push('.pxml/catalog.xml');
-  settings['xml.catalogs'] = catalogs;
-  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
+  addCatalogToVscodeSettings(cwd, '.pxml/catalog.xml');
 }
