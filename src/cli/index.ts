@@ -275,10 +275,31 @@ program
       }
     }
 
+    // Collect package import aliases (from `from=` / `package=` imports, not `src=`)
+    // so we can skip base-component nodes that are never extended by the user.
+    const packageAliases = new Set<string>();
+    try {
+      const rawXml = fs.readFileSync(path.join(cwd, 'project.xml'), 'utf-8');
+      for (const el of rawXml.match(/<import\b[^>]*>/g) ?? []) {
+        if (/from\s*=/.test(el) || /package\s*=/.test(el)) {
+          const am = el.match(/\bas\s*=\s*["']([^"']+)["']/);
+          if (am) packageAliases.add(am[1]);
+        }
+      }
+    } catch { /* best-effort */ }
+
     const compiledNodeIds: string[] = [];
 
     for (const nodeId of order) {
       if (extendedNodeIds.has(nodeId)) {
+        continue;
+      }
+      // Skip unused package bases (e.g. all ~150 base components from the UI
+      // library that the user never extends).  A "package base" is any node
+      // whose id starts with a package import alias (from `from=` / `package=`,
+      // not `src=` flow files).
+      if (packageAliases.size > 0 &&
+          [...packageAliases].some(a => nodeId.startsWith(`${a}:`))) {
         continue;
       }
       const node = project.nodes.find(n => n.id === nodeId)!;
