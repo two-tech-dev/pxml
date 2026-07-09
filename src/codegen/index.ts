@@ -16,6 +16,17 @@ const colors = {
   bold: (text: string) => `\x1b[1m${text}\x1b[0m`
 };
 
+// Hard import rules shared by all stacks.  The single biggest source of broken
+// AI output is the model inventing import paths for package sub-components
+// (e.g. `import ProductCard from '@/components/ui/ecommerce/ProductCard'`) that
+// do not exist on disk — the installed package ships XML specs, not .tsx files.
+export const IMPORT_RULES = `IMPORT RULES (CRITICAL — violating these causes build failures):
+- You may ONLY import from: (a) standard packages (next, react, @testing-library/*, etc.), or (b) RELATIVE paths to files that are part of THIS project (see the node paths in Project Context), or (c) the project '@/' alias ONLY when the target is a file declared as a node in this project (e.g. '@/lib/db' for the shared.db node).
+- NEVER import from '@/components/ui/...' or from a package name (e.g. 'ui-ux-components-pxml'). Those are NOT real files and will fail to resolve.
+- When a node EXTENDS a base component from an installed package, that base is a SPECIFICATION, not a compiled file. You MUST INLINE all of its sub-components (cards, navbars, buttons, modals, etc.) directly into the generated file. Do NOT create separate import statements for package sub-components.
+- If you need a component that exists as another node in THIS project, import it via a RELATIVE path (e.g. '../components/Navbar') pointing to that node's declared <path>.
+- Prefer self-contained files: inline helper components rather than splitting into files that are not declared as nodes.`;
+
 function getStackInstructions(stack: string): { systemPrompt: string; promptNote: string } {
   const stackLower = stack.toLowerCase();
   if (stackLower.includes('python')) {
@@ -351,7 +362,7 @@ Generate ONLY the single-line shell command. Do not include explanation, comment
     }
 
     const prompt = this.buildPrompt(node, projectContext, stackInfo.promptNote);
-    const systemPrompt = stackInfo.systemPrompt;
+    const systemPrompt = stackInfo.systemPrompt + '\n' + IMPORT_RULES;
     
     const code = await this.provider.generate(prompt, systemPrompt, this.config.model);
     let cleanedCode = this.cleanMarkdown(code);
@@ -368,6 +379,7 @@ Generated Code:
 ${cleanedCode}
 
 Analyze the code. Are there any bugs, schema inconsistencies, or missing imports/exports? 
+In particular, check that EVERY import statement resolves to a real file or npm package — there must be NO imports from '@/components/ui/...' or from package names (those are not real files). If the code imports a package sub-component, inline it instead.
 If there are issues, output the corrected code. If the code is fully stable, output the word "STABLE".`;
 
       const verificationResponse = await this.provider.generate(verificationPrompt, "You are a senior code reviewer. Return ONLY the corrected code or the exact word 'STABLE'. Do not include markdown code blocks or explanations.", this.config.model);
@@ -518,6 +530,9 @@ ${sections.join('\n')}`;
   }
 
   private buildPrompt(node: Node, projectContext: string, promptNote: string): string {
+    const extendsInfo = node.extends
+      ? `- Extends Base Component: ${node.extends}\n  (This base is a SPEC from an installed package — INLINE its sub-components; do NOT import it.)\n`
+      : '';
     return `Project Context:
 ${projectContext}
 
@@ -529,8 +544,10 @@ Generate implementation file for this node:
 - Input Fields: ${JSON.stringify(node.input)}
 - Output Fields: ${JSON.stringify(node.output)}
 - ${promptNote}
-- Constraints:
+${extendsInfo}- Constraints:
 ${node.constraints.map(c => `  - [${c.verify}] ${c.description}${c.learnedFrom ? ` (Learned from bug: ${c.learnedFrom})` : ''}`).join('\n')}
+
+IMPORTANT: Only import from npm packages or RELATIVE paths to files declared as nodes in this project (listed in Project Context above). Do NOT import from '@/components/ui/...' or package names. If the node extends a base component, inline its sub-components into this file.
 
 Generate the cleanest code matching this specification. Do not include markdown wrapping or explanation.`;
   }
