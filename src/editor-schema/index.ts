@@ -2,8 +2,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Project } from '../parser/schema.js';
 
-const NEOVIM_HELP = `.vim/pxml.lua`;
-
 const SKIP_DIRS = new Set(['.pxml', 'node_modules', '.git', 'dist']);
 
 /**
@@ -140,23 +138,36 @@ ${extendsEnum}
 `;
 
   let core = fs.readFileSync(coreXsdPath, 'utf-8');
-  core = core.replace(
-    '<xs:attribute name="flow" type="xs:string" use="required"/>',
-    '<xs:attribute name="flow" type="UiFlowType" use="required"/>'
-  );
-  core = core.replace(
-    '<xs:attribute name="type" type="xs:string" use="required"/>',
-    '<xs:attribute name="type" type="UiNodeType" use="required"/>'
-  );
-  if (extendsVals.length) {
-    core = core.replace(
-      '<xs:attribute name="extends" type="xs:string" use="optional"/>',
-      '<xs:attribute name="extends" type="UiExtendsType" use="optional"/>'
-    );
-  }
-  core = core.replace('</xs:schema>', `${additions}</xs:schema>`);
 
-  fs.writeFileSync(path.join(schemaDir, 'pxml.enriched.xsd'), core);
+  // Backup the original core XSD on first run (before enrichment).
+  const coreBackup = path.join(schemaDir, 'pxml.core.xsd');
+  const alreadyEnriched = core.includes('UiFlowType');
+  if (!fs.existsSync(coreBackup)) {
+    fs.copyFileSync(coreXsdPath, coreBackup);
+  }
+
+  if (!alreadyEnriched) {
+    core = core.replace(
+      '<xs:attribute name="flow" type="xs:string" use="required"/>',
+      '<xs:attribute name="flow" type="UiFlowType" use="required"/>'
+    );
+    core = core.replace(
+      '<xs:attribute name="type" type="xs:string" use="required"/>',
+      '<xs:attribute name="type" type="UiNodeType" use="required"/>'
+    );
+    if (extendsVals.length) {
+      core = core.replace(
+        '<xs:attribute name="extends" type="xs:string" use="optional"/>',
+        '<xs:attribute name="extends" type="UiExtendsType" use="optional"/>'
+      );
+    }
+    core = core.replace('</xs:schema>', `${additions}</xs:schema>`);
+  }
+
+  // Overwrite pxml.xsd with the enriched version.  Every LSP/editor that
+  // reads this file (including lemminx) will see the enumerations — no
+  // catalog or LSP config needed.
+  fs.writeFileSync(coreXsdPath, core);
 
   // Collect every distinct noNamespaceSchemaLocation across the project so the
   // catalog remaps ALL of them (not just the root pxml.xsd).  This ensures
@@ -175,7 +186,6 @@ ${sysEntries}
   fs.writeFileSync(path.join(pxmldir, 'catalog.xml'), catalog);
 
   addCatalogToVscodeSettings(cwd, '.pxml/catalog.xml');
-  createNvimLspHelper(cwd);
 }
 
 function createNvimLspHelper(cwd: string): void {
