@@ -471,32 +471,17 @@ Generate the complete test code. Do not include markdown wrapping or explanation
     return cleaned;
   }
 
-  async generateBatchTests(nodes: Node[], stack: string, writer: FileWriter, cwd: string): Promise<string[]> {
+  async generateCombinedTest(nodes: Node[], stack: string, writer: FileWriter, cwd: string): Promise<string> {
+    const combinedPath = '.pxml/all.test.ts';
     if (this.config.mockResponse || !this.provider) {
-      for (const n of nodes) {
-        writer.write(getTestFilePath(n.meta.path, stack), `// Mock test for ${n.id}\n`);
-      }
-      return nodes.map(n => n.id);
+      writer.write(combinedPath, `// Combined mock test for ${nodes.length} nodes\n`);
+      return combinedPath;
     }
 
-    const systemPrompt = `You are an expert QA and software testing engineer.
-Generate test files for multiple implementation files in a single response.
-Separate each test file with a line matching exactly: \`### FILE: <path>\`
-Do NOT include markdown code-block fences. Only output the test code with file markers.
-
-CRITICAL: The test framework matches the stack. For JS/TS, use Vitest. For Python, use pytest.
-CRITICAL: Never make real network calls. Always mock requests, responses, DB.
-CRITICAL: For Next.js page components with Promise searchParams, wrap in '<Suspense>'.
-CRITICAL: In JS/TS component tests, add '// @vitest-environment jsdom' at top of each file.
-CRITICAL: Use local relative paths (e.g. './page' or './route'). Never use path aliases.
-CRITICAL: Import 'cleanup' from "@testing-library/react" and call afterEach(cleanup).`;
-
     const sections = nodes.map(node => {
-      const testPath = getTestFilePath(node.meta.path, stack);
       const implPath = path.resolve(cwd, node.meta.path);
       const implCode = fs.existsSync(implPath) ? fs.readFileSync(implPath, 'utf-8') : '';
       return `--- Node: ${node.id}
-Test File Path: ${testPath}
 Implementation Path: ${node.meta.path}
 Implementation Code:
 \`\`\`
@@ -510,33 +495,26 @@ XML Specs:
 --- END`;
     });
 
-    const prompt = `Generate test files for the following compiled nodes.\n${sections.join('\n')}\n\nOutput each test file prefixed with its path marker:\n### FILE: <relative/test/path>\n<test code>\n\nOnly output test code and file markers.`;
+    const prompt = `You are generating a SINGLE combined Vitest test file that tests ALL of the following implementation nodes.
+Import each implementation using a local relative path (e.g. \`import Component from './page'\` or \`import * as handler from './route'\`).
+Export default a React component if needed. Never use path aliases (like '@/...').
 
+For Next.js page components with Promise searchParams, wrap in '<Suspense>'.
+In JS/TS component tests, add '// @vitest-environment jsdom' at the top.
+Import 'cleanup' from "@testing-library/react" and call afterEach(cleanup).
+Never make real network calls — always mock requests, responses, DB.
+
+Only output the complete test code, no markdown fences, no explanation.
+Write ONE combined file that covers all nodes below.
+
+${sections.join('\n')}`;
+
+    const systemPrompt = 'You are an expert QA engineer generating Vitest tests. Output ONLY code.';
     const response = await this.provider.generate(prompt, systemPrompt, this.config.model);
-    const written: string[] = [];
-    const lines = response.split('\n');
-    let currentPath = '';
-    let currentCode: string[] = [];
-    for (const line of lines) {
-      const m = line.match(/^###\s*FILE:\s*(.+)$/i);
-      if (m) {
-        if (currentPath && currentCode.length > 0) {
-          writer.write(currentPath, currentCode.join('\n'));
-          this.logAIResponse(currentPath + '_batch_test', 'batch segment', currentCode.join('\n'));
-          written.push(currentPath);
-        }
-        currentPath = m[1].trim();
-        currentCode = [];
-      } else {
-        currentCode.push(line);
-      }
-    }
-    if (currentPath && currentCode.length > 0) {
-      writer.write(currentPath, currentCode.join('\n'));
-      this.logAIResponse(currentPath + '_batch_test', 'batch segment', currentCode.join('\n'));
-      written.push(currentPath);
-    }
-    return written;
+    const cleaned = this.cleanMarkdown(response);
+    writer.write(combinedPath, cleaned);
+    this.logAIResponse('combined_test', prompt, cleaned);
+    return combinedPath;
   }
 
   private buildPrompt(node: Node, projectContext: string, promptNote: string): string {

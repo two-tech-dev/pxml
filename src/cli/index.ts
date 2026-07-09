@@ -379,17 +379,17 @@ program
       }
     }
 
-    // Batch test generation — one AI call per chunk (max 5 nodes) to avoid
-    // context-window limits.  Falls back to per-node on failure.
-    const MAX_BATCH = 2;
-    for (let i = 0; i < pendingTestNodes.length; i += MAX_BATCH) {
-      const chunk = pendingTestNodes.slice(i, i + MAX_BATCH);
-      console.log(`${colors.magenta(colors.bold('[TESTGEN]'))} Tests ${i + 1}–${Math.min(i + MAX_BATCH, pendingTestNodes.length)} / ${pendingTestNodes.length}...`);
+    // Generate ONE combined test file for all pending nodes.
+    let combinedTestPath = '';
+    if (pendingTestNodes.length > 0) {
+      console.log(`${colors.magenta(colors.bold('[TESTGEN]'))} Generating combined test file for ${pendingTestNodes.length} node(s)...`);
       try {
-        await codegen.generateBatchTests(chunk.map(pt => pt.node), project.stack, writer, cwd);
+        combinedTestPath = await codegen.generateCombinedTest(
+          pendingTestNodes.map(pt => pt.node), project.stack, writer, cwd
+        );
       } catch (err: any) {
-        console.warn(`[TESTGEN] Batch failed (${err.message}), falling back to per-node...`);
-        for (const pt of chunk) {
+        console.warn(`[TESTGEN] Combined test failed (${err.message}), falling back to per-node...`);
+        for (const pt of pendingTestNodes) {
           const testPath = getTestFilePath(pt.node.meta.path, project.stack);
           console.log(`${colors.magenta(colors.bold('[TESTGEN]'))} Generating test for: ${pt.node.id}`);
           await codegen.generateNodeTest(pt.node, path.resolve(cwd, testPath), pt.code, project.stack, writer);
@@ -402,11 +402,17 @@ program
       const bugContext = buildBugContext(cwd);
       let allPassed = true;
 
-      // Single batch test run — run ALL test files at once, not per-node.
-      const testFiles = pendingTestNodes.map(pt => path.resolve(cwd, getTestFilePath(pt.node.meta.path, project.stack))).filter(f => fs.existsSync(f));
-      if (testFiles.length > 0) {
-        console.log(colors.cyan(colors.bold(`\nRunning ${testFiles.length} test file(s)...`)));
-        const testCmd = `npx vitest run ${testFiles.join(' ')}`;
+      // Single test run — prefer the combined test file, fall back to per-node files.
+      let testTarget: string;
+      if (combinedTestPath && fs.existsSync(combinedTestPath)) {
+        testTarget = combinedTestPath;
+      } else {
+        const perNodeFiles = pendingTestNodes.map(pt => path.resolve(cwd, getTestFilePath(pt.node.meta.path, project.stack))).filter(f => fs.existsSync(f));
+        testTarget = perNodeFiles.join(' ');
+      }
+      if (testTarget) {
+        console.log(colors.cyan(colors.bold(`\nRunning tests...`)));
+        const testCmd = `npx vitest run ${testTarget}`;
         let batchPassed = false;
         try {
           execSync(testCmd, { stdio: 'pipe', cwd });
