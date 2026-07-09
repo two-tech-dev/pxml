@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import { PxmlParser, validateProject } from '../parser/index.js';
+import { Node as PxmlNode } from '../parser/schema.js';
 import { DependencyGraph } from '../graph/index.js';
 import { PxmlManifest } from '../manifest/index.js';
 import { PxmlCache } from '../cache/index.js';
@@ -289,7 +290,7 @@ program
     } catch { /* best-effort */ }
 
     const compiledNodeIds: string[] = [];
-    const allTestFiles: string[] = [];
+    const pendingTestNodes: { node: PxmlNode; code: string }[] = [];
 
     for (const nodeId of order) {
       if (extendedNodeIds.has(nodeId)) {
@@ -355,10 +356,8 @@ program
 
         if (shouldAutogen && node.type !== 'setup-command' && node.type !== 'config-file') {
           if (!cached || cached.xml_hash !== xmlHash || !fs.existsSync(absTestFilePath) || cachedTestHash !== testXmlHash) {
-            console.log(`${colors.magenta(colors.bold('[TESTGEN]'))} Generating/Updating test file at: ${testFilePath}`);
-            await codegen.generateNodeTest(node, absTestFilePath, code, project.stack, writer);
+            pendingTestNodes.push({ node, code });
           }
-          allTestFiles.push(absTestFilePath);
         }
 
         manifest.setNode(nodeId, {
@@ -380,13 +379,19 @@ program
       }
     }
 
+    // Batch test generation — one AI call for all pending nodes.
+    if (pendingTestNodes.length > 0) {
+      console.log(`${colors.magenta(colors.bold('[TESTGEN]'))} Generating ${pendingTestNodes.length} test file(s) in one AI call...`);
+      await codegen.generateBatchTests(pendingTestNodes.map(pt => pt.node), project.stack, writer, cwd);
+    }
+
     if (compiledNodeIds.length > 0) {
       const runner = new PxmlRunner(cwd, writer);
       const bugContext = buildBugContext(cwd);
       let allPassed = true;
 
       // Single batch test run — run ALL test files at once, not per-node.
-      const testFiles = allTestFiles.filter(f => fs.existsSync(f));
+      const testFiles = pendingTestNodes.map(pt => path.resolve(cwd, getTestFilePath(pt.node.meta.path, project.stack))).filter(f => fs.existsSync(f));
       if (testFiles.length > 0) {
         console.log(colors.cyan(colors.bold(`\nRunning ${testFiles.length} test file(s)...`)));
         const testCmd = `npx vitest run ${testFiles.join(' ')}`;
