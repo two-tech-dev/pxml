@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { execSync } from 'child_process';
 import { XMLParser } from 'fast-xml-parser';
 import { ProjectSchema, Project, Node, NodeSchema } from './schema.js';
 
@@ -215,7 +216,6 @@ export class PxmlParser {
             fs.mkdirSync(cacheDir, { recursive: true });
             const gitUrl = `https://github.com/${owner}/${repo}.git`;
             console.log(`[PACKAGE] Cloning package ${imp.package} from ${gitUrl}...`);
-            const { execSync } = require('child_process');
             execSync(`git clone --depth 1 ${gitUrl} ${cacheDir}`, { stdio: 'ignore' });
           }
           importedPath = path.join(cacheDir, 'project.xml');

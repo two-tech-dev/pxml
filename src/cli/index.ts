@@ -8,6 +8,7 @@ import { PxmlCodegen } from '../codegen/index.js';
 import { PxmlRunner, getTestFilePath } from '../runner/index.js';
 import { FileWriter } from '../writer/index.js';
 import { runFixLoop } from './fix.js';
+import { syncEditorSchema } from '../editor-schema/index.js';
 import { execSync } from 'child_process';
 import { XMLParser } from 'fast-xml-parser';
 import * as fs from 'fs';
@@ -185,6 +186,7 @@ program
       console.error(err.message);
       process.exit(1);
     }
+    syncEditorSchema(cwd, project);
     injectHistoricalBugs(project.nodes, cwd);
     const graph = new DependencyGraph(project.nodes);
     const order = graph.getSortOrder();
@@ -376,6 +378,7 @@ program
       const parser = new PxmlParser();
       const project = parser.parse(projectXml);
       validateProject(project);
+      syncEditorSchema(cwd, project);
       console.log('Project validation successful.');
     } catch (err: any) {
       console.error(err.message);
@@ -680,6 +683,15 @@ program
   }
 
   // 2. Copy/update XSD schema files in the project root
+  const rootProjectXml = path.join(cwd, 'project.xml');
+  if (fs.existsSync(rootProjectXml)) {
+    try {
+      const mp = new PxmlParser();
+      syncEditorSchema(cwd, mp.parse(rootProjectXml));
+    } catch {
+      // editor-schema sync is best-effort; never block migrate
+    }
+  }
   for (const [src, destName] of [[xsdSource, 'pxml.xsd'], [bugsXsdSource, 'bugs.xsd']]) {
     const dest = path.join(cwd, destName);
     const buf = fs.readFileSync(src);
