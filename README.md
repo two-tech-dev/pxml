@@ -155,6 +155,10 @@ pxml compile --dry-run                     # show execution plan without AI call
 - **Context by dependency** — only files from `depends_on` nodes are fed to the AI
   (was: all previously compiled files).
 - **File cap** — each file is truncated at ~2000 characters with an elision marker.
+- **Batch test generation** — all test files are generated in a **single AI call**
+  (was: one call per node). AI returns marker-separated test files (`### FILE: path`).
+- **Single test run** — all tests execute in one `vitest run`, not one per node.
+  Failures are fixed in dependency order after the batch run.
 - **AI self-verification is opt-in** — pass `--verify` to enable it (doubles token
   cost per node). Default: skip, saving ~2× tokens per node.
 
