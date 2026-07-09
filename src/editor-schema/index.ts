@@ -88,12 +88,12 @@ export function syncEditorSchema(cwd: string, project: Project): void {
   if (flows.length === 0) return;
 
   // Exact extendable base-component ids: those belonging to any imported
-  // package (id starts with `<alias>:` and contains at least two colons).
+  // package (id starts with `<alias>:` and contains at least one colon).
   const extendsVals = aliases.length > 0
     ? [...new Set(
         project.nodes
           .map(n => n.id)
-          .filter(id => aliases.some(a => id.startsWith(`${a}:`) && (id.match(/:/g) ?? []).length >= 2))
+          .filter(id => aliases.some(a => id.startsWith(`${a}:`) && (id.match(/:/g) ?? []).length >= 1))
       )].sort()
     : [];
 

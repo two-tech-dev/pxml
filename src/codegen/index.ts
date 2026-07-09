@@ -224,6 +224,7 @@ export interface CodegenConfig {
   baseUrl?: string;
   customProvider?: AIProvider;
   mockResponse?: (node: Node) => string;
+  skipVerification?: boolean;
 }
 
 export class PxmlCodegen {
@@ -354,7 +355,8 @@ Generate ONLY the single-line shell command. Do not include explanation, comment
     const code = await this.provider.generate(prompt, systemPrompt, this.config.model);
     let cleanedCode = this.cleanMarkdown(code);
 
-    // AI Code Verification & Self-Correction step
+    // AI Code Verification & Self-Correction step (opt-in, saves 2x tokens per node)
+    if (!this.config.skipVerification) {
     try {
       const verificationPrompt = `Verify the correctness and deployment stability of the following generated code for node '${node.id}'.
 Destination Path: ${node.meta.path}
@@ -376,6 +378,7 @@ If there are issues, output the corrected code. If the code is fully stable, out
       }
     } catch (err: any) {
       console.warn(`[VERIFY WARNING] Self-verification step skipped: ${err.message}`);
+    }
     }
 
     writer.write(node.meta.path, cleanedCode);

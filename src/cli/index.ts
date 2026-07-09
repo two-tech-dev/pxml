@@ -227,6 +227,7 @@ program
   .description('Compile XML nodes to implementation code')
   .option('--dry-run', 'Show execution plan without writing changes')
   .option('--no-autogen-tests', 'Disable automatic test case generation')
+  .option('--verify', 'Run AI self-verification on generated code (doubles tokens per node)')
   .option('--provider <provider>', 'AI Provider (anthropic, openai, or ollama)', 'anthropic')
   .option('--apiKey <key>', 'API key')
   .option('--baseUrl <url>', 'Base API URL for OpenAI compatible provider')
@@ -261,7 +262,8 @@ program
       provider: options.provider as any,
       apiKey: apiKey,
       baseUrl: options.baseUrl,
-      model: options.model
+      model: options.model,
+      skipVerification: !options.verify
     });
 
     console.log(`Compiling project ${project.name} (stack: ${project.stack})...`);
@@ -293,17 +295,28 @@ program
         continue;
       }
 
-      // Build rich project context by loading contents of already generated files
+      // Build project context: only include files from nodes that the current
+      // node directly depends on, capped to reduce token cost.
+      const MAX_FILE_CHARS = 2000;
+      const nodeMap = new Map(project.nodes.map(n => [n.id, n]));
+      const dependents = node.meta.depends_on;
       let projectContext = project.nodes.map(n => `Node: ${n.id}, Path: ${n.meta.path}`).join('\n');
-      projectContext += '\n\nAlready generated files contents:\n';
-      
+      projectContext += '\n\n--- Relevant dependency files ---\n';
+
       const manifestData = manifest.get();
       for (const [mNodeId, mNode] of Object.entries(manifestData.nodes)) {
+        if (!dependents.includes(mNodeId)) continue;
         for (const filePath of mNode.output_files) {
           const absPath = path.resolve(cwd, filePath);
           if (fs.existsSync(absPath)) {
             const content = fs.readFileSync(absPath, 'utf-8');
-            projectContext += `\n--- File: ${filePath} (Node: ${mNodeId}) ---\n${content}\n`;
+            if (content.length <= MAX_FILE_CHARS) {
+              projectContext += `\n--- File: ${filePath} (Node: ${mNodeId}) ---\n${content}\n`;
+            } else {
+              const truncated = content.slice(0, MAX_FILE_CHARS);
+              const remaining = content.slice(MAX_FILE_CHARS).split('\n').length;
+              projectContext += `\n--- File: ${filePath} (Node: ${mNodeId}) [partial, ~${remaining} lines elided] ---\n${truncated}\n`;
+            }
           }
         }
       }
