@@ -9,7 +9,7 @@ import { PxmlCodegen } from '../codegen/index.js';
 import { PxmlRunner, getTestFilePath } from '../runner/index.js';
 import { FileWriter } from '../writer/index.js';
 import { runFixLoop } from './fix.js';
-import { runBuildLoop } from './buildcheck/index.js';
+import { runBuildLoop } from '../buildcheck/index.js';
 import { syncEditorSchema, addCatalogToVscodeSettings } from '../editor-schema/index.js';
 import { createDefaultManifest, addPackageToManifest, installPackages } from '../install/index.js';
 import { execSync } from 'child_process';
