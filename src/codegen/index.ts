@@ -434,7 +434,7 @@ Generate SEARCH/REPLACE blocks to fix ONLY the reported errors in ${node.meta.pa
 - Otherwise output only the patch.`;
 
         try {
-          const patch = await this.provider.generate(fixPrompt, 'Generate only SEARCH/REPLACE patch block, or the word NODEP if a dependency is missing.');
+          const patch = await this.generateDirect(fixPrompt, 'Generate only SEARCH/REPLACE patch block, or the word NODEP if a dependency is missing.');
           if (patch.trim().toUpperCase() === 'NODEP') {
             console.log(`${colors.yellow('[VALIDATE]')} Node ${node.id}: dependency error detected, skipping code fix.`);
             break;
