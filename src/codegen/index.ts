@@ -349,6 +349,17 @@ Generate ONLY the single-line shell command. Do not include explanation, comment
       return commandText;
     }
 
+    // db-helper nodes are generated deterministically (not by AI) so the shared
+    // database export shape is always correct.  We export BOTH a named `db` and
+    // a default, so routes can import either `import db from '@/lib/db'` or
+    // `import { db } from '@/lib/db'` without a build error.
+    if (node.type === 'db-helper') {
+      const code = this.generateDbHelper(node);
+      writer.write(node.meta.path, code);
+      this.logAIResponse(node.id, 'DB_HELPER_TEMPLATE', code);
+      return code;
+    }
+
     if (this.config.mockResponse) {
       const mockCode = this.config.mockResponse(node);
       writer.write(node.meta.path, mockCode);
@@ -396,6 +407,26 @@ If there are issues, output the corrected code. If the code is fully stable, out
     writer.write(node.meta.path, cleanedCode);
     this.logAIResponse(node.id, prompt, cleanedCode);
     return cleanedCode;
+  }
+
+  // Deterministic shared-database helper.  Derives the db filename and busyTimeout
+  // from the node's constraints when present, otherwise uses safe defaults.
+  private generateDbHelper(node: Node): string {
+    const allText = node.constraints.map(c => c.description).join(' ');
+    const nameMatch = allText.match(/([A-Za-z0-9_-]+\.db)/);
+    const dbName = nameMatch ? nameMatch[1] : 'shop.db';
+    const btMatch = allText.match(/busyTimeout\s*(?:option\s*of\s*)?(\d+)\s*ms/i);
+    const busyTimeout = btMatch ? parseInt(btMatch[1], 10) : 5000;
+
+    return `import path from 'path';
+import Database from 'better-sqlite3';
+
+const dbPath = path.resolve(process.cwd(), '${dbName}');
+const db = new Database(dbPath, { busyTimeout: ${busyTimeout} });
+
+export { db };
+export default db;
+`;
   }
 
   async generateNodeTest(node: Node, testPath: string, implementationCode: string, stack = 'nextjs', writer: FileWriter): Promise<string> {
