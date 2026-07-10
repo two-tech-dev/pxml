@@ -9,6 +9,7 @@ import { PxmlCodegen } from '../codegen/index.js';
 import { PxmlRunner, getTestFilePath } from '../runner/index.js';
 import { FileWriter } from '../writer/index.js';
 import { runFixLoop } from './fix.js';
+import { runBuildLoop } from './buildcheck/index.js';
 import { syncEditorSchema, addCatalogToVscodeSettings } from '../editor-schema/index.js';
 import { createDefaultManifest, addPackageToManifest, installPackages } from '../install/index.js';
 import { execSync } from 'child_process';
@@ -230,6 +231,7 @@ program
   .option('--no-autogen-tests', 'Disable automatic test case generation')
   .option('--verify', 'Run AI self-verification on generated code (doubles tokens per node)')
   .option('--no-validate', 'Disable per-file compiler/linter validation + auto-fix after codegen')
+  .option('--no-build-check', 'Disable post-codegen full build verification + auto-fix (next build / go build / cargo build)')
   .option('--provider <provider>', 'AI Provider (anthropic, openai, or ollama)', 'anthropic')
   .option('--apiKey <key>', 'API key')
   .option('--baseUrl <url>', 'Base API URL for OpenAI compatible provider')
@@ -453,6 +455,16 @@ program
                 console.log(`${colors.green(colors.bold('[PASS]'))} Node ${node.id} healed.`);
               }
             }
+          }
+        }
+
+        // Post-codegen BUILD verification + auto-fix loop (the strongest oracle:
+        // catches framework rules like Next.js 'use client', module resolution,
+        // type and cross-file errors that per-file tsc cannot).  Enabled by default.
+        if (options.buildCheck) {
+          const built = await runBuildLoop(cwd, project.stack, codegen, writer);
+          if (!built) {
+            console.error(colors.red(colors.bold('\n[BUILD] Project did not build after auto-fix attempts.')));
           }
         }
       }
