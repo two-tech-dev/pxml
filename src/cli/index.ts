@@ -457,18 +457,19 @@ program
             }
           }
         }
+      }
 
-        // Post-codegen BUILD verification + auto-fix loop (the strongest oracle:
-        // catches framework rules like Next.js 'use client', module resolution,
-        // type and cross-file errors that per-file tsc cannot).  Enabled by default.
-        if (options.buildCheck !== false) {
-          const built = await runBuildLoop(cwd, project.stack, codegen, writer);
-          if (!built) {
-            console.error(colors.red(colors.bold('\n[BUILD] Project did not build after auto-fix attempts.')));
-          }
+      // Post-codegen BUILD verification + auto-fix loop (the strongest oracle:
+      // catches framework rules like Next.js 'use client', module resolution,
+      // type and cross-file errors that per-file tsc cannot).  Runs for every
+      // compile (even when nodes are served from cache).  Enabled by default.
+      if (options.buildCheck !== false) {
+        const built = await runBuildLoop(cwd, project.stack, codegen, writer);
+        if (!built) {
+          console.error(colors.red(colors.bold('\n[BUILD] Project did not build after auto-fix attempts.')));
         }
       }
-      
+
       if (!allPassed) {
         console.error(colors.red(colors.bold('\n[ERROR] Some compiled nodes failed tests and could not self-heal.')));
         process.exit(1);
