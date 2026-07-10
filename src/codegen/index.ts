@@ -2,6 +2,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import { Node } from '../parser/schema.js';
 import { FileWriter } from '../writer/index.js';
 import { getTestFilePath } from '../runner/index.js';
+import { PxmlPatcher } from '../patcher/index.js';
+import { validateNode } from '../validator/index.js';
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -237,6 +239,7 @@ export interface CodegenConfig {
   customProvider?: AIProvider;
   mockResponse?: (node: Node) => string;
   skipVerification?: boolean;
+  skipValidation?: boolean;
 }
 
 export class PxmlCodegen {
@@ -278,7 +281,7 @@ export class PxmlCodegen {
     return this.provider.generate(prompt, systemPrompt, this.config.model);
   }
 
-  async generateNodeCode(node: Node, projectContext: string, writer: FileWriter, stack = 'nextjs'): Promise<string> {
+  async generateNodeCode(node: Node, projectContext: string, writer: FileWriter, stack = 'nextjs', cwd = process.cwd()): Promise<string> {
     const stackInfo = getStackInstructions(stack);
     if (node.type === 'setup-command') {
       if (this.config.mockResponse) {
@@ -396,6 +399,56 @@ If there are issues, output the corrected code. If the code is fully stable, out
 
     writer.write(node.meta.path, cleanedCode);
     this.logAIResponse(node.id, prompt, cleanedCode);
+
+    // Deterministic per-file validation + auto-fix.  The stack's native checker
+    // (tsc / py_compile / go vet / cargo check) is the oracle, so type/syntax
+    // errors are caught and fixed immediately after generation — independent of
+    // model quality.  Skipped for nodes that produce no code file.
+    if (!this.config.skipValidation && node.meta.path && node.type !== 'setup-command') {
+      const maxV = 3;
+      for (let attempt = 1; attempt <= maxV; attempt++) {
+        const vres = validateNode(node, cwd, stack);
+        if (vres.ok) break;
+
+        if (attempt === 1) {
+          console.log(`${colors.yellow(colors.bold('[VALIDATE]'))} Node ${node.id} has syntax/type errors, auto-fixing (compiler as oracle)...`);
+        }
+
+        const absPath = path.resolve(cwd, node.meta.path);
+        const cur = fs.existsSync(absPath) ? fs.readFileSync(absPath, 'utf-8') : cleanedCode;
+        const fixPrompt = `You are a software repair AI. The following generated file has syntax/type errors reported by the compiler/linter.
+Path: ${node.meta.path}
+Reported Errors:
+${vres.errors}
+
+Current Code:
+\`\`\`typescript
+${cur}
+\`\`\`
+
+${IMPORT_RULES}
+
+Generate SEARCH/REPLACE blocks to fix ONLY the reported errors in ${node.meta.path}.
+- Use the header "FILE: ${node.meta.path}" followed by a <<<<<<< SEARCH ... ======= ... >>>>>>> REPLACE block.
+- If an error is caused by a MISSING DEPENDENCY (a package that is not installed), do NOT edit the code for it — instead output the exact word NODEP and nothing else, so it can be handled separately.
+- Otherwise output only the patch.`;
+
+        try {
+          const patch = await this.provider.generate(fixPrompt, 'Generate only SEARCH/REPLACE patch block, or the word NODEP if a dependency is missing.');
+          if (patch.trim().toUpperCase() === 'NODEP') {
+            console.log(`${colors.yellow('[VALIDATE]')} Node ${node.id}: dependency error detected, skipping code fix.`);
+            break;
+          }
+          const patched = PxmlPatcher.applyPatch(cur, patch);
+          writer.write(absPath, patched);
+          console.log(`${colors.green(colors.bold('[VALIDATE]'))} Applied fix to ${node.meta.path} (attempt ${attempt}).`);
+        } catch (err: any) {
+          console.warn(`${colors.red('[VALIDATE]')} fix attempt ${attempt} failed: ${err.message}`);
+          break;
+        }
+      }
+    }
+
     return cleanedCode;
   }
 

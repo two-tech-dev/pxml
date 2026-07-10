@@ -229,6 +229,7 @@ program
   .option('--dry-run', 'Show execution plan without writing changes')
   .option('--no-autogen-tests', 'Disable automatic test case generation')
   .option('--verify', 'Run AI self-verification on generated code (doubles tokens per node)')
+  .option('--no-validate', 'Disable per-file compiler/linter validation + auto-fix after codegen')
   .option('--provider <provider>', 'AI Provider (anthropic, openai, or ollama)', 'anthropic')
   .option('--apiKey <key>', 'API key')
   .option('--baseUrl <url>', 'Base API URL for OpenAI compatible provider')
@@ -264,7 +265,8 @@ program
       apiKey: apiKey,
       baseUrl: options.baseUrl,
       model: options.model,
-      skipVerification: !options.verify
+      skipVerification: !options.verify,
+      skipValidation: !options.validate
     });
 
     console.log(`Compiling project ${project.name} (stack: ${project.stack})...`);
@@ -346,7 +348,7 @@ program
 
       console.log(`${colors.cyan(colors.bold('[CODEGEN]'))} Generating code for node: ${nodeId}`);
       try {
-        const code = await codegen.generateNodeCode(node, projectContext, writer, project.stack);
+        const code = await codegen.generateNodeCode(node, projectContext, writer, project.stack, cwd);
         
         const testFilePath = getTestFilePath(node.meta.path, project.stack);
         const testXmlHash = PxmlCache.hashNodeTests(node);
