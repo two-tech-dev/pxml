@@ -6,7 +6,7 @@
     "build": "pnpm run -r build",
     "test": "pnpm run -r test",
     "cli": "pnpm --filter @two-tech-dev/pxml exec tsx src/index.ts",
-    "dev": "pnpm --filter @pxml/studio run dev",
-    "start": "pnpm --filter @pxml/studio run dev"
+    "dev": "pnpm --filter @two-tech-dev/pxml-studio run dev",
+    "start": "pnpm --filter @two-tech-dev/pxml-studio run dev"
   }
 }
