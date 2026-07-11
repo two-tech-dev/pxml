@@ -5,6 +5,7 @@ import { useProjectStore, useOutputStore } from '../../stores/index.js';
 import { NodeEditDialog } from '../dialogs/NodeEditDialog.js';
 import type { NodeType } from '../../types/index.js';
 import { NODE_COLORS } from '../../types/index.js';
+import { useAppSettings } from '../../hooks/useAppSettings.js';
 import { FolderOpen, Link, FileText, Plus } from 'lucide-react';
 
 const NODE_TYPE_LIST: { type: NodeType; label: string; color: string }[] = [
@@ -17,6 +18,7 @@ const NODE_TYPE_LIST: { type: NodeType; label: string; color: string }[] = [
 ];
 
 export function GraphCanvas() {
+  const settings = useAppSettings();
   const nodes = useProjectStore(s => s.nodes);
   const edges = useProjectStore(s => s.edges);
   const workspacePath = useProjectStore(s => s.workspacePath);
@@ -99,10 +101,12 @@ export function GraphCanvas() {
         onPaneContextMenu={onPaneContextMenu}
         onPaneClick={() => { setSelectedNode(null); setNodeContextMenu(null); setPaneContextMenu(null); }}
         nodeTypes={getNodeTypes(nodes)} edgeTypes={pxmlEdgeTypes}
-        defaultEdgeOptions={{ type: 'dependency', selectable: true, focusable: true, deletable: true }}
+        defaultEdgeOptions={{ type: 'dependency', selectable: true, focusable: true, deletable: true, label: settings.showEdgeLabels ? undefined : '' }}
         connectionLineStyle={{ stroke: '#404040', strokeWidth: 1.5 }}
         fitView minZoom={0.1} maxZoom={2} edgesFocusable={true}
         connectOnClick={false} panOnDrag={[1, 2]} proOptions={{ hideAttribution: true }}
+        snapToGrid={settings.snapToGrid}
+        snapGrid={settings.snapToGrid ? [20, 20] : undefined}
         style={{ background: '#0a0a0a' }}
       >
         {nodes.length === 0 && (
@@ -132,7 +136,7 @@ export function GraphCanvas() {
           </div>
         )}
         <Controls style={{ background: 'transparent' }} />
-        <MiniMap style={{ background: '#0a0a0a' }} />
+        {settings.nodeMinimap && <MiniMap style={{ background: '#0a0a0a' }} />}
         <Background color="#1f1f1f" gap={20} size={1} />
       </ReactFlow>
 

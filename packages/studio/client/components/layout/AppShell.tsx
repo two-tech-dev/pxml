@@ -7,8 +7,10 @@ import { GraphCanvas } from '../graph/GraphCanvas.js';
 import { PropertyPanel } from '../panels/PropertyPanel.js';
 import { OutputPanel } from '../panels/OutputPanel.js';
 import { Icons } from '../icons.js';
+import { useAppSettings } from '../../hooks/useAppSettings.js';
 
 export function AppShell() {
+  const settings = useAppSettings();
   const sidebarOpen = useUIStore(s => s.leftPanelOpen);
   const rightPanelOpen = useUIStore(s => s.rightPanelOpen);
   const bottomOpen = useUIStore(s => s.bottomPanelOpen);
@@ -66,6 +68,7 @@ export function AppShell() {
 
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           {/* Activity Bar */}
+          {settings.activityBarVisible && (
           <div style={{
             width: 48, background: '#0a0a0a', display: 'flex', flexDirection: 'column',
             alignItems: 'center', paddingTop: 8, gap: 2, flexShrink: 0,
@@ -75,6 +78,7 @@ export function AppShell() {
             <ActBtn active={rightPanelOpen} onClick={toggleRightPanel} Icon={Icons.panelRight} label="Properties" />
             <div style={{ flex: 1 }} />
           </div>
+          )}
 
           {/* Left Panel */}
           {sidebarOpen && (
@@ -140,7 +144,7 @@ export function AppShell() {
           )}
         </div>
 
-        <StatusBar />
+        {settings.statusBarVisible && <StatusBar />}
       </div>
     </ReactFlowProvider>
   );

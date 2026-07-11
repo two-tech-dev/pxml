@@ -1,10 +1,10 @@
 import express from 'express';
 import cors from 'cors';
 import http from 'http';
-import { WebSocketServer } from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import {
   PxmlParser, validateProject, DependencyGraph, PxmlCodegen,
-  addPackageToManifest
+  addPackageToManifest, PxmlManifest, PxmlRunner, FileWriter, runFixLoop,
 } from '@two-tech-dev/pxml-core';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -34,9 +34,32 @@ export function startStudio(port: number = 3001) {
     });
   }
 
+  // WebSocket state
+  const clients = new Set<WebSocket>();
+  const MAX_HISTORY = 50;
+  const messageHistory: string[] = [];
+  let compileRunning = false;
+
+  wss.on('connection', (ws: WebSocket) => {
+    clients.add(ws);
+    if (compileRunning) {
+      ws.send(JSON.stringify({ type: 'compile:resume', message: 'Compilation in progress...' }));
+    }
+    for (const item of messageHistory) {
+      try { ws.send(item); } catch {}
+    }
+    ws.on('close', () => { clients.delete(ws); });
+  });
+
   function broadcast(data: any) {
     const msg = JSON.stringify(data);
-    wss.clients.forEach(c => { if (c.readyState === 1) c.send(msg); });
+    if (msg.length < 5000) {
+      messageHistory.push(msg);
+      if (messageHistory.length > MAX_HISTORY) messageHistory.shift();
+    }
+    for (const ws of clients) {
+      try { ws.send(msg); } catch {}
+    }
   }
 
   app.get('/api/home', (_req, res) => { res.json({ home: os.homedir() }); });
@@ -133,12 +156,94 @@ export function startStudio(port: number = 3001) {
     } catch (e: any) { res.json({ positions: {} }); }
   });
 
-  app.post('/api/test', (_req, res) => {
-    res.json({ passed: true, message: 'Tests triggered.' });
+  app.post('/api/test', (req, res) => {
+    try {
+      const { path: wp, nodeId } = req.body as any;
+      if (!wp) return res.json({ passed: false, message: 'No workspace path' });
+      const project = new PxmlParser().parse(path.join(wp, 'project.xml'));
+      const nodes = nodeId ? project.nodes.filter((n: any) => n.id === nodeId) : project.nodes;
+      if (nodes.length === 0) return res.json({ passed: false, message: 'No matching nodes' });
+
+      const testFiles: string[] = [];
+      for (const node of nodes) {
+        const testPath = path.join(wp, '.pxml', 'tests', `${node.id}.test.ts`);
+        if (fs.existsSync(testPath)) testFiles.push(testPath);
+      }
+      if (testFiles.length === 0) return res.json({ passed: false, message: 'No test files found. Run compile first.' });
+
+      try {
+        execSync(`npx vitest run ${testFiles.join(' ')}`, { stdio: 'pipe', cwd: wp, timeout: 60000 });
+        res.json({ passed: true, message: `All ${nodes.length} node(s) passed.` });
+      } catch (e: any) {
+        const stderr = e.stderr?.toString() || '';
+        const failures = (stderr.match(/FAIL\s/g) || []).length;
+        res.json({ passed: false, message: `${failures || 'Some'} test(s) failed. Check output.` });
+      }
+    } catch (e: any) { res.json({ passed: false, message: e.message }); }
   });
 
-  app.post('/api/fix', (_req, res) => {
-    res.json({ fixed: true, message: 'Fix started.' });
+  app.post('/api/fix', async (req, res) => {
+    try {
+      const { path: wp, nodeId, provider, model, apiKey, baseUrl } = req.body as any;
+      if (!wp || !nodeId) return res.json({ fixed: false, message: 'Missing workspace path or nodeId' });
+
+      const project = new PxmlParser().parse(path.join(wp, 'project.xml'));
+      const node = (project.nodes as any[]).find((n: any) => n.id === nodeId);
+      if (!node) return res.json({ fixed: false, message: `Node ${nodeId} not found` });
+
+      const actualProvider = provider || 'anthropic';
+      const actualModel = model || 'claude-3-5-sonnet';
+      const actualKey = apiKey || (actualProvider === 'openai' ? process.env.OPENAI_API_KEY : process.env.ANTHROPIC_API_KEY);
+      const actualBaseUrl = baseUrl || '';
+
+      const manifest = new PxmlManifest(wp, project.name, project.version);
+      const writer = new FileWriter(false, wp);
+      const runner = new PxmlRunner(wp, writer);
+
+      const codegen = new PxmlCodegen({
+        provider: actualProvider,
+        apiKey: actualKey,
+        baseUrl: actualBaseUrl,
+        model: actualModel,
+        cwd: wp,
+      });
+
+      // Collect bug context from bugs_history.xml
+      let bugContext = '';
+      const bugsPath = path.join(wp, 'bugs_history.xml');
+      if (fs.existsSync(bugsPath)) {
+        try {
+          const xml = fs.readFileSync(bugsPath, 'utf-8');
+          const parsed = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_', allowBooleanAttributes: true, parseAttributeValue: true }).parse(xml);
+          if (parsed.bugs && parsed.bugs.bug) {
+            const rawBugs = Array.isArray(parsed.bugs.bug) ? parsed.bugs.bug : [parsed.bugs.bug];
+            bugContext = rawBugs.map((b: any) =>
+              `[${b['@_flow'] || 'general'}] ${b['@_id']}: ${(b['#text'] || '').trim()}`
+            ).join('\n');
+          }
+        } catch {}
+      }
+
+      broadcast({ type: 'fix_start', nodeId });
+      try {
+        const testRes = runner.runNodeTests(node, project.stack);
+        if (testRes.passed && !bugContext) {
+          broadcast({ type: 'fix_end', nodeId, status: 'done', message: `Node ${nodeId} already healthy.` });
+          return res.json({ fixed: true, message: `Node ${nodeId} tests already pass.` });
+        }
+
+        const success = await runFixLoop(
+          node, wp, manifest, codegen, runner, writer,
+          undefined, bugContext || undefined, !testRes.passed, project.stack,
+        );
+
+        broadcast({ type: 'fix_end', nodeId, status: success ? 'done' : 'error', message: success ? 'Fixed' : 'Could not fix' });
+        res.json({ fixed: success, message: success ? `Node ${nodeId} fixed.` : `Could not fix node ${nodeId}.` });
+      } catch (e: any) {
+        broadcast({ type: 'fix_end', nodeId, status: 'error', message: e.message });
+        res.json({ fixed: false, message: e.message });
+      }
+    } catch (e: any) { res.json({ fixed: false, message: e.message }); }
   });
 
   app.post('/api/diagnose', (req, res) => {

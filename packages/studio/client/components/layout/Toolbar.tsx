@@ -65,7 +65,13 @@ export function Toolbar() {
   }
   async function runFix(nodeId:string) {
     if(!workspacePath) return; append({type:'info',message:`Starting fix for ${nodeId}...`});
-    await fetch('/api/fix',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:workspacePath,nodeId})});
+    const r = await fetch('/api/fix',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        path:workspacePath, nodeId,
+        provider: settings.provider, model: settings.model,
+        apiKey: settings.apiKey, baseUrl: settings.baseUrl,
+      })});
+    const d = await r.json(); append({type:d.fixed?'success':'error',message:d.message});
   }
   async function handleExport() { const p = await exportXml(); if(p) append({type:'success',message:`Exported to ${p}`}); }
 

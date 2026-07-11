@@ -1,9 +1,15 @@
 import { useOutputStore } from '../../stores/index.js';
 import { XCircle, CheckCircle, AlertTriangle, Circle } from 'lucide-react';
+import { useAppSettings } from '../../hooks/useAppSettings.js';
 
 export function OutputPanel() {
   const lines = useOutputStore(s => s.lines);
   const clear = useOutputStore(s => s.clear);
+  const settings = useAppSettings();
+
+  const displayLines = settings.outputMaxLines > 0
+    ? lines.slice(-settings.outputMaxLines)
+    : lines;
 
   return (
     <div style={{
@@ -23,12 +29,12 @@ export function OutputPanel() {
         >Clear</button>
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: '2px 0' }}>
-        {lines.length === 0 && (
+        {displayLines.length === 0 && (
           <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: '#525252', lineHeight: 1.6 }}>
             Output appears here<br />when you compile, test, or fix nodes.
           </div>
         )}
-        {lines.map((line, i) => {
+        {displayLines.map((line, i) => {
           const color = line.type === 'error' ? '#ef4444' : line.type === 'success' ? '#22c55e' : line.type === 'warn' ? '#eab308' : '#737373';
           const Icon = line.type === 'error' ? XCircle : line.type === 'success' ? CheckCircle : line.type === 'warn' ? AlertTriangle : Circle;
           return (
@@ -37,7 +43,9 @@ export function OutputPanel() {
               background: line.type === 'error' ? 'rgba(239,68,68,0.06)' : line.type === 'warn' ? 'rgba(234,179,8,0.06)' : 'transparent',
               borderLeft: line.type === 'error' ? '3px solid #ef4444' : line.type === 'warn' ? '3px solid #eab308' : '3px solid transparent',
             }}>
-              <span style={{ color: '#404040', fontSize: 10, minWidth: 70 }}>{new Date(line.timestamp).toLocaleTimeString()}</span>
+              {settings.timestampsVisible && (
+                <span style={{ color: '#404040', fontSize: 10, minWidth: 70 }}>{new Date(line.timestamp).toLocaleTimeString()}</span>
+              )}
               <Icon size={11} strokeWidth={2} style={{ color: color, flexShrink: 0 }} />
               {line.nodeId && <span style={{ color: '#a3a3a3', fontSize: 11 }}>{line.nodeId}</span>}
               <span style={{ flex: 1 }}>{line.message}</span>
