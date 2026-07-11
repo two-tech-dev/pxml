@@ -53,11 +53,16 @@ const clients = new Set<WebSocket>();
 
 wss.on('connection', (ws) => {
   clients.add(ws);
-  ws.on('close', () => clients.delete(ws));
+  console.log('[WS] Client connected, total:', clients.size);
+  ws.on('close', () => {
+    clients.delete(ws);
+    console.log('[WS] Client disconnected, total:', clients.size);
+  });
 });
 
 function broadcast(data: any) {
   const msg = JSON.stringify(data);
+  console.log('[WS] Broadcast:', data.type, '→', clients.size, 'client(s)');
   for (const ws of clients) {
     try { ws.send(msg); } catch {}
   }
