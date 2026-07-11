@@ -9,6 +9,8 @@ import { PluginManager } from '../dialogs/PluginManager.js';
 import { ProviderSettingsDialog, getPersistedSettings, type ProviderSettings } from '../dialogs/ProviderSettingsDialog.js';
 import { SettingsDialog } from '../dialogs/SettingsDialog.js';
 import { Icons } from '../icons.js';
+import type { NodeType } from '../../types/index.js';
+import { NODE_COLORS } from '../../types/index.js';
 
 const I = ({ Icon, size = 14 }: { Icon: any; size?: number }) => (
   <Icon size={size} strokeWidth={1.5} style={{ flexShrink: 0 }} />
@@ -23,6 +25,7 @@ export function Toolbar() {
   const [showPlugins, setShowPlugins] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showAppSettings, setShowAppSettings] = useState(false);
+  const [showNewNode, setShowNewNode] = useState(false);
   const [openPath, setOpenPath] = useState('');
 
   const isCompiling = useOutputStore(s => s.isCompiling);
@@ -48,6 +51,7 @@ export function Toolbar() {
       if ((e.ctrlKey||e.metaKey)&&e.key==='z'&&!e.shiftKey){e.preventDefault();undo();}
       if ((e.ctrlKey||e.metaKey)&&e.key==='z'&&e.shiftKey){e.preventDefault();redo();}
       if ((e.ctrlKey||e.metaKey)&&e.key===','){e.preventDefault();setShowAppSettings(true);}
+      if ((e.ctrlKey||e.metaKey)&&e.key==='n'){e.preventDefault();setShowNewNode(true);}
     };
     window.addEventListener('keydown', h);
     return ()=>window.removeEventListener('keydown', h);
@@ -97,6 +101,11 @@ export function Toolbar() {
           onMouseEnter={e => { e.currentTarget.style.background = '#1c1c1c'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
         ><I Icon={Icons.save} /> Save{isDirty && ' \u25cf'}</button>
+        <Sep />
+        <button onClick={() => setShowNewNode(true)} style={B()}
+          onMouseEnter={e => { e.currentTarget.style.background = '#1c1c1c'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+        ><I Icon={Icons.plus} /> New Node</button>
         <Sep />
 
         <button onClick={() => { setShowSettings(true); setSettings(getPersistedSettings()); }} style={B()}
@@ -193,12 +202,81 @@ export function Toolbar() {
       <PluginManager open={showPlugins} onClose={() => setShowPlugins(false)} />
       <ProviderSettingsDialog open={showSettings} onClose={() => { setShowSettings(false); setSettings(getPersistedSettings()); }} />
       <SettingsDialog open={showAppSettings} onClose={() => setShowAppSettings(false)} />
+      {showNewNode && <NewNodeDialog onClose={() => setShowNewNode(false)} />}
     </>
   );
 }
 
 function Sep() {
   return <div style={{ width: 1, height: 18, background: '#262626', margin: '0 4px' }} />;
+}
+
+const NODE_TYPE_LIST: { type: NodeType; label: string; color: string; desc: string }[] = [
+  { type: 'api-route', label: 'API Route', color: NODE_COLORS['api-route'].border, desc: 'REST endpoint or API handler' },
+  { type: 'ui-component', label: 'UI Component', color: NODE_COLORS['ui-component'].border, desc: 'Frontend UI element' },
+  { type: 'db-model', label: 'DB Model', color: NODE_COLORS['db-model'].border, desc: 'Database schema or model' },
+  { type: 'middleware', label: 'Middleware', color: NODE_COLORS['middleware'].border, desc: 'Request/response interceptor' },
+  { type: 'config-file', label: 'Config File', color: NODE_COLORS['config-file'].border, desc: 'Configuration or settings file' },
+  { type: 'setup-command', label: 'Setup Command', color: NODE_COLORS['setup-command'].border, desc: 'Setup or migration script' },
+];
+
+function NewNodeDialog({ onClose }: { onClose: () => void }) {
+  const [selectedType, setSelectedType] = useState<NodeType | null>(null);
+  const [nodeId, setNodeId] = useState('');
+  const addNode = useProjectStore(s => s.addNode);
+  const selectedNodeId = useProjectStore(s => s.selectedNodeId);
+
+  function handleCreate() {
+    if (!selectedType) return;
+    const id = addNode(selectedType, { x: 250, y: 250 });
+    onClose();
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+      <div style={{ background: '#171717', border: '1px solid #262626', borderRadius: 8, padding: 24, width: 440, boxShadow: '0 24px 64px rgba(0,0,0,0.5)', animation: 'fadeIn 0.2s ease-out' }}>
+        <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 600, color: '#e5e5e5' }}>New Node</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+          {NODE_TYPE_LIST.map((nt) => (
+            <button key={nt.type} onClick={() => setSelectedType(nt.type)} style={{
+              display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+              padding: '10px 12px', borderRadius: 6, textAlign: 'left',
+              border: selectedType === nt.type ? `1px solid ${nt.color}50` : '1px solid #262626',
+              background: selectedType === nt.type ? `${nt.color}10` : 'transparent',
+              transition: 'all 0.12s',
+            }}
+              onMouseEnter={e => { if (selectedType !== nt.type) e.currentTarget.style.background = '#1c1c1c'; }}
+              onMouseLeave={e => { if (selectedType !== nt.type) e.currentTarget.style.background = 'transparent'; }}
+            >
+              <span style={{ width: 10, height: 10, borderRadius: 3, flexShrink: 0, background: nt.color }} />
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: '#e5e5e5' }}>{nt.label}</div>
+                <div style={{ fontSize: 11, color: '#525252', marginTop: 1 }}>{nt.desc}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button onClick={onClose} style={{
+            padding: '6px 14px', fontSize: 12, borderRadius: 4,
+            border: '1px solid #262626', color: '#a3a3a3',
+          }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#1c1c1c'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+          >Cancel</button>
+          <button onClick={handleCreate} disabled={!selectedType} style={{
+            padding: '6px 14px', fontSize: 12, fontWeight: 600, borderRadius: 4,
+            background: selectedType ? '#e5e5e5' : '#262626',
+            color: selectedType ? '#0a0a0a' : '#525252',
+            border: '1px solid transparent',
+          }}
+            onMouseEnter={e => { if (selectedType) e.currentTarget.style.background = '#d4d4d4'; }}
+            onMouseLeave={e => { if (selectedType) e.currentTarget.style.background = '#e5e5e5'; }}
+          >Create</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function OpenDialog({ path, setPath, onOpen, onClose }: { path: string; setPath: (v: string) => void; onOpen: (p?: string) => void; onClose: () => void }) {

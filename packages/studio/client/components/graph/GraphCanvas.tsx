@@ -4,7 +4,17 @@ import { pxmlEdgeTypes, getNodeTypes } from './nodes/index.js';
 import { useProjectStore, useOutputStore } from '../../stores/index.js';
 import { NodeEditDialog } from '../dialogs/NodeEditDialog.js';
 import type { NodeType } from '../../types/index.js';
-import { FolderOpen, Link, FileText } from 'lucide-react';
+import { NODE_COLORS } from '../../types/index.js';
+import { FolderOpen, Link, FileText, Plus } from 'lucide-react';
+
+const NODE_TYPE_LIST: { type: NodeType; label: string; color: string }[] = [
+  { type: 'api-route', label: 'API Route', color: NODE_COLORS['api-route'].border },
+  { type: 'ui-component', label: 'UI Component', color: NODE_COLORS['ui-component'].border },
+  { type: 'db-model', label: 'DB Model', color: NODE_COLORS['db-model'].border },
+  { type: 'middleware', label: 'Middleware', color: NODE_COLORS['middleware'].border },
+  { type: 'config-file', label: 'Config File', color: NODE_COLORS['config-file'].border },
+  { type: 'setup-command', label: 'Setup Command', color: NODE_COLORS['setup-command'].border },
+];
 
 export function GraphCanvas() {
   const nodes = useProjectStore(s => s.nodes);
@@ -17,7 +27,8 @@ export function GraphCanvas() {
   const setSelectedNode = useProjectStore(s => s.setSelectedNode);
   const addNode = useProjectStore(s => s.addNode);
   const { screenToFlowPosition, fitView } = useReactFlow();
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
+  const [nodeContextMenu, setNodeContextMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
+  const [paneContextMenu, setPaneContextMenu] = useState<{ x: number; y: number; flowX: number; flowY: number } | null>(null);
   const [editNodeId, setEditNodeId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -26,7 +37,21 @@ export function GraphCanvas() {
 
   function onNodeContextMenu(e: React.MouseEvent, node: any) {
     e.preventDefault();
-    setContextMenu({ x: e.clientX, y: e.clientY, nodeId: node.id });
+    setNodeContextMenu({ x: e.clientX, y: e.clientY, nodeId: node.id });
+    setPaneContextMenu(null);
+  }
+
+  function onPaneContextMenu(e: React.MouseEvent) {
+    e.preventDefault();
+    const pos = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+    setPaneContextMenu({ x: e.clientX, y: e.clientY, flowX: pos.x, flowY: pos.y });
+    setNodeContextMenu(null);
+  }
+
+  function createNode(type: NodeType, flowX: number, flowY: number) {
+    const id = addNode(type, { x: flowX, y: flowY });
+    setPaneContextMenu(null);
+    setEditNodeId(id);
   }
 
   function onDragOver(e: React.DragEvent) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
@@ -70,8 +95,9 @@ export function GraphCanvas() {
         onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
         onNodeClick={(_e, node) => setSelectedNode(node.id)}
         onNodeContextMenu={onNodeContextMenu}
-        onEdgeContextMenu={(e, edge) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, nodeId: edge.id }); }}
-        onPaneClick={() => { setSelectedNode(null); setContextMenu(null); }}
+        onEdgeContextMenu={(e, edge) => { e.preventDefault(); setNodeContextMenu({ x: e.clientX, y: e.clientY, nodeId: edge.id }); }}
+        onPaneContextMenu={onPaneContextMenu}
+        onPaneClick={() => { setSelectedNode(null); setNodeContextMenu(null); setPaneContextMenu(null); }}
         nodeTypes={getNodeTypes(nodes)} edgeTypes={pxmlEdgeTypes}
         defaultEdgeOptions={{ type: 'dependency', selectable: true, focusable: true, deletable: true }}
         connectionLineStyle={{ stroke: '#404040', strokeWidth: 1.5 }}
@@ -93,13 +119,13 @@ export function GraphCanvas() {
               ) : nodes.length === 0 && edges.length > 0 ? (
                 <>
                   <div style={{ marginBottom: 12, opacity: 0.4, display: 'flex', justifyContent: 'center' }}><Link size={32} strokeWidth={1} /></div>
-                  <div style={{ color: '#737373' }}>Edges only {"\u2014"} drag a node from the sidebar</div>
+                  <div style={{ color: '#737373' }}>Edges only {"\u2014"} right-click to add a node</div>
                 </>
               ) : (
                 <>
                   <div style={{ marginBottom: 16, opacity: 0.4, display: 'flex', justifyContent: 'center' }}><FileText size={48} strokeWidth={1} /></div>
                   <div style={{ color: '#737373', fontWeight: 500 }}>No nodes in project</div>
-                  <div style={{ fontSize: 11, marginTop: 6, color: '#404040' }}>Drag node types from the left sidebar</div>
+                  <div style={{ fontSize: 11, marginTop: 6, color: '#404040' }}>Right-click canvas or drag from sidebar</div>
                 </>
               )}
             </div>
@@ -110,12 +136,49 @@ export function GraphCanvas() {
         <Background color="#1f1f1f" gap={20} size={1} />
       </ReactFlow>
 
-      {contextMenu && (
-        <NodeContextMenu x={contextMenu.x} y={contextMenu.y} nodeId={contextMenu.nodeId}
-          onClose={() => setContextMenu(null)} onEdit={(id) => { setEditNodeId(id); setContextMenu(null); }} />
+      {nodeContextMenu && (
+        <NodeContextMenu x={nodeContextMenu.x} y={nodeContextMenu.y} nodeId={nodeContextMenu.nodeId}
+          onClose={() => setNodeContextMenu(null)} onEdit={(id) => { setEditNodeId(id); setNodeContextMenu(null); }} />
+      )}
+      {paneContextMenu && (
+        <PaneContextMenu x={paneContextMenu.x} y={paneContextMenu.y}
+          onClose={() => setPaneContextMenu(null)}
+          onCreate={(type) => createNode(type, paneContextMenu.flowX, paneContextMenu.flowY)} />
       )}
       {editNodeId && <NodeEditDialog nodeId={editNodeId} onClose={() => setEditNodeId(null)} />}
     </div>
+  );
+}
+
+function PaneContextMenu({ x, y, onClose, onCreate }: {
+  x: number; y: number; onClose: () => void; onCreate: (type: NodeType) => void;
+}) {
+  return (
+    <>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.4)' }} onClick={onClose} onContextMenu={e => { e.preventDefault(); onClose(); }} />
+      <div style={{
+        position: 'fixed', left: x, top: y, zIndex: 101,
+        background: '#171717', border: '1px solid #262626',
+        borderRadius: 6, boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+        minWidth: 180, padding: '4px 0', animation: 'fadeIn 0.12s ease-out',
+      }}>
+        <div style={{ padding: '6px 12px 8px', fontSize: 11, color: '#525252', borderBottom: '1px solid #1f1f1f', marginBottom: 4, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Plus size={12} /> New Node
+        </div>
+        {NODE_TYPE_LIST.map((nt) => (
+          <button key={nt.type} onClick={() => onCreate(nt.type)} style={{
+            display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+            textAlign: 'left', padding: '6px 12px', fontSize: 12, color: '#a3a3a3',
+          }}
+            onMouseEnter={e => (e.currentTarget.style.background = '#1c1c1c')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+          >
+            <span style={{ width: 8, height: 8, borderRadius: 3, flexShrink: 0, background: nt.color }} />
+            {nt.label}
+          </button>
+        ))}
+      </div>
+    </>
   );
 }
 
