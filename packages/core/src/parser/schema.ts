@@ -61,6 +61,7 @@ export const ProjectSchema = z.object({
   nodes: z.array(NodeSchema).default([])
 });
 
+export type Import = z.infer<typeof ImportSchema>;
 export type Project = z.infer<typeof ProjectSchema>;
 export type Node = z.infer<typeof NodeSchema>;
 export type TestCase = z.infer<typeof TestCaseSchema>;

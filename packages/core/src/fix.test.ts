@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { runFixLoop } from '../src/cli/fix.ts';
-import { PxmlManifest } from '../src/manifest/index.ts';
-import { PxmlCodegen } from '../src/codegen/index.ts';
-import { PxmlRunner } from '../src/runner/index.ts';
-import { FileWriter } from '../src/writer/index.ts';
-import { Node } from '../src/parser/schema.js';
+import { runFixLoop } from './cli/fix.js';
+import { PxmlManifest } from './manifest/index.js';
+import { PxmlCodegen } from './codegen/index.js';
+import { PxmlRunner } from './runner/index.js';
+import { FileWriter } from './writer/index.js';
+import { Node } from './parser/schema.js';
 import * as fs from 'fs';
 import * as path from 'path';
 

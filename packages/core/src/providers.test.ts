@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { PxmlCodegen } from '../src/codegen/index.ts';
-import { FileWriter } from '../src/writer/index.ts';
-import { Node } from '../src/parser/schema.js';
+import { PxmlCodegen } from './codegen/index.js';
+import { FileWriter } from './writer/index.js';
+import { Node } from './parser/schema.js';
 import * as path from 'path';
 
 const TMP_DIR = '/tmp/pxml-test-providers';

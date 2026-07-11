@@ -3,3 +3,4 @@ dist
 .pxml
 .env
 package-lock.json
+packages/*/dist

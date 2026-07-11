@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { PxmlParser, validateProject } from '../src/parser/index.ts';
-import { DependencyGraph } from '../src/graph/index.ts';
+import { PxmlParser, validateProject } from './parser/index.js';
+import { DependencyGraph } from './graph/index.js';
 import * as path from 'path';
 
 describe('PxmlParser', () => {
   it('should parse project, resolve imports, merge extends, and detect cycles', () => {
     const parser = new PxmlParser();
-    const projectXml = path.resolve(__dirname, '../fixtures/project.xml');
+    const projectXml = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../../fixtures/project.xml');
     const project = parser.parse(projectXml);
 
     expect(project.name).toBe('main-blog');
@@ -56,7 +56,7 @@ describe('PxmlParser', () => {
 describe('DependencyGraph', () => {
   it('should sort nodes topologically and detect circular dependency', () => {
     const parser = new PxmlParser();
-    const projectXml = path.resolve(__dirname, '../fixtures/project.xml');
+    const projectXml = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../../fixtures/project.xml');
     const project = parser.parse(projectXml);
 
     const graph = new DependencyGraph(project.nodes);
@@ -228,7 +228,7 @@ describe('validateProject', () => {
       </project>
     `);
 
-    const cliPath = path.resolve(__dirname, '../src/cli/index.ts');
+    const cliPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../cli/src/index.ts');
     execSync(`npx tsx "${cliPath}" migrate`, { cwd: tempDir, stdio: 'inherit' });
 
     const projectXmlContent = fs.readFileSync(path.join(tempDir, 'project.xml'), 'utf-8');

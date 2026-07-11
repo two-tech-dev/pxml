@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { PxmlCodegen } from '../src/codegen/index.ts';
-import { FileWriter } from '../src/writer/index.ts';
-import { Node } from '../src/parser/schema.js';
+import { PxmlCodegen } from './codegen/index.js';
+import { FileWriter } from './writer/index.js';
+import { Node } from './parser/schema.js';
 import * as fs from 'fs';
 import * as path from 'path';
 

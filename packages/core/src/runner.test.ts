@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { PxmlTestgen } from '../src/testgen/index.ts';
-import { PxmlRunner, getTestFilePath } from '../src/runner/index.ts';
-import { FileWriter } from '../src/writer/index.ts';
-import { Node } from '../src/parser/schema.js';
+import { PxmlTestgen } from './testgen/index.js';
+import { PxmlRunner, getTestFilePath } from './runner/index.js';
+import { FileWriter } from './writer/index.js';
+import { Node } from './parser/schema.js';
 import * as fs from 'fs';
 import * as path from 'path';
 

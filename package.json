@@ -1,28 +1,12 @@
 {
-  "name": "@two-tech-dev/pxml",
+  "name": "pxml-monorepo",
   "version": "0.7.3",
-  "description": "XML DSL and compiler for AI-driven project building",
-  "type": "module",
-  "main": "dist/index.js",
-  "bin": {
-    "pxml": "dist/cli/index.js"
-  },
+  "private": true,
   "scripts": {
-    "build": "tsc",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "cli": "tsx src/cli/index.ts"
-  },
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.22.0",
-    "commander": "^12.1.0",
-    "fast-xml-parser": "^4.4.0",
-    "zod": "^3.23.8"
-  },
-  "devDependencies": {
-    "@types/node": "^20.14.9",
-    "typescript": "^5.5.2",
-    "vitest": "^1.6.0",
-    "tsx": "^4.16.0"
+    "build": "pnpm run -r build",
+    "test": "pnpm run -r test",
+    "cli": "pnpm --filter @two-tech-dev/pxml exec tsx src/index.ts",
+    "dev": "pnpm --filter @pxml/studio run dev",
+    "start": "pnpm --filter @pxml/studio run dev"
   }
 }

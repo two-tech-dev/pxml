@@ -1,0 +1,40 @@
+{
+  "name": "@pxml/studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"vite\" \"tsx server/index.ts\"",
+    "dev:client": "vite",
+    "dev:server": "tsx server/index.ts",
+    "build": "vite build && tsc -p tsconfig.server.json",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@pxml/core": "workspace:*",
+    "@xyflow/react": "^12.6.0",
+    "zustand": "^5.0.0",
+    "dagre": "^0.8.5",
+    "express": "^4.21.0",
+    "ws": "^8.18.0",
+    "cors": "^2.8.5",
+    "fast-xml-parser": "^4.4.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/ws": "^8.5.10",
+    "@types/cors": "^2.8.17",
+    "@types/dagre": "^0.7.52",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "typescript": "^5.5.2",
+    "vite": "^6.0.0",
+    "tsx": "^4.16.0",
+    "concurrently": "^9.0.0",
+    "tailwindcss": "^4.0.0",
+    "@tailwindcss/vite": "^4.0.0"
+  }
+}

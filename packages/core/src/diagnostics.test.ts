@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { PxmlDiagnostics } from '../src/diagnostics/index.ts';
-import { PxmlPatcher } from '../src/patcher/index.ts';
+import { PxmlDiagnostics } from './diagnostics/index.js';
+import { PxmlPatcher } from './patcher/index.js';
 
 describe('PxmlDiagnostics', () => {
   it('should map errors to flow heuristics', () => {

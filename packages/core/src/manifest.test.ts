@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { PxmlCache } from '../src/cache/index.ts';
-import { PxmlManifest } from '../src/manifest/index.ts';
-import { Node } from '../src/parser/schema.js';
+import { PxmlCache } from './cache/index.js';
+import { PxmlManifest } from './manifest/index.js';
+import { Node } from './parser/schema.js';
 import * as fs from 'fs';
 import * as path from 'path';
 

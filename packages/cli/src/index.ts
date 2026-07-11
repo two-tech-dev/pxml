@@ -1,19 +1,14 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
-import { PxmlParser, validateProject } from '../parser/index.js';
-import { Node as PxmlNode } from '../parser/schema.js';
-import { DependencyGraph } from '../graph/index.js';
-import { PxmlManifest } from '../manifest/index.js';
-import { PxmlCache } from '../cache/index.js';
-import { PxmlCodegen } from '../codegen/index.js';
-import { PxmlRunner, getTestFilePath } from '../runner/index.js';
-import { FileWriter } from '../writer/index.js';
-import { runFixLoop } from './fix.js';
-import { runBuildLoop } from '../buildcheck/index.js';
-import { syncEditorSchema, addCatalogToVscodeSettings } from '../editor-schema/index.js';
-import { createDefaultManifest, addPackageToManifest, installPackages } from '../install/index.js';
-import { execSync } from 'child_process';
 import { XMLParser } from 'fast-xml-parser';
+import {
+  PxmlParser, validateProject, PxmlManifest, PxmlCache, PxmlCodegen, PxmlRunner,
+  getTestFilePath, FileWriter, DependencyGraph, runFixLoop, runBuildLoop,
+  syncEditorSchema, addCatalogToVscodeSettings, createDefaultManifest,
+  addPackageToManifest, installPackages
+} from '@pxml/core';
+import type { Node as PxmlNode } from '@pxml/core';
+import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -27,12 +22,17 @@ const colors = {
   bold: (text: string) => `\x1b[1m${text}\x1b[0m`
 };
 
+function resolveXsd(name: string): string {
+  const distDir = path.dirname(new URL(import.meta.url).pathname);
+  return path.resolve(distDir, '..', name);
+}
+
 const program = new Command();
 
 program
   .name('pxml')
   .description('pxml compiler and build tool')
-  .version('0.1.0');
+  .version('0.7.3');
 
 program
   .command('init')
@@ -46,7 +46,6 @@ program
       return;
     }
 
-    // Create example directory structure for flows and packages
     fs.mkdirSync(path.join(cwd, 'flows'), { recursive: true });
     fs.mkdirSync(path.join(cwd, 'shared'), { recursive: true });
     fs.mkdirSync(path.join(cwd, 'packages', 'init-nextjs-project'), { recursive: true });
@@ -123,31 +122,14 @@ program
   </node>
 </project>`;
 
-    const fileUrl = new URL(import.meta.url);
-    const sourceXsd = path.resolve(path.dirname(fileUrl.pathname), '../../pxml.xsd');
+    const sourceXsd = resolveXsd('pxml.xsd');
     if (fs.existsSync(sourceXsd)) {
       fs.copyFileSync(sourceXsd, path.join(cwd, 'pxml.xsd'));
-    } else {
-      const fallbackXsd = path.resolve(cwd, 'pxml.xsd');
-      if (!fs.existsSync(fallbackXsd)) {
-        const workspaceXsd = path.resolve(path.dirname(fileUrl.pathname), '../../../pxml.xsd');
-        if (fs.existsSync(workspaceXsd)) {
-          fs.copyFileSync(workspaceXsd, path.join(cwd, 'pxml.xsd'));
-        }
-      }
     }
 
-    const sourceBugsXsd = path.resolve(path.dirname(fileUrl.pathname), '../../bugs.xsd');
+    const sourceBugsXsd = resolveXsd('bugs.xsd');
     if (fs.existsSync(sourceBugsXsd)) {
       fs.copyFileSync(sourceBugsXsd, path.join(cwd, 'bugs.xsd'));
-    } else {
-      const fallbackBugsXsd = path.resolve(cwd, 'bugs.xsd');
-      if (!fs.existsSync(fallbackBugsXsd)) {
-        const workspaceBugsXsd = path.resolve(path.dirname(fileUrl.pathname), '../../../bugs.xsd');
-        if (fs.existsSync(workspaceBugsXsd)) {
-          fs.copyFileSync(workspaceBugsXsd, path.join(cwd, 'bugs.xsd'));
-        }
-      }
     }
 
     const bugsHistoryXml = `<bugs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -161,7 +143,6 @@ program
     fs.writeFileSync(path.join(cwd, 'flows', 'blog.xml'), blogXml, 'utf-8');
     fs.writeFileSync(path.join(cwd, 'packages', 'init-nextjs-project', 'project.xml'), initNextjsProjectXml, 'utf-8');
 
-    // Generate enriched schema + catalog for init-nextjs-project package
     const pkgDir = path.join(cwd, 'packages', 'init-nextjs-project');
     const coreXsdBuf = fs.readFileSync(path.join(cwd, 'pxml.xsd'), 'utf-8');
     const enriched = coreXsdBuf
@@ -280,8 +261,6 @@ program
       }
     }
 
-    // Collect package import aliases (from `from=` / `package=` imports, not `src=`)
-    // so we can skip base-component nodes that are never extended by the user.
     const packageAliases = new Set<string>();
     try {
       const rawXml = fs.readFileSync(path.join(cwd, 'project.xml'), 'utf-8');
@@ -300,10 +279,6 @@ program
       if (extendedNodeIds.has(nodeId)) {
         continue;
       }
-      // Skip unused package bases (e.g. all ~150 base components from the UI
-      // library that the user never extends).  A "package base" is any node
-      // whose id starts with a package import alias (from `from=` / `package=`,
-      // not `src=` flow files).
       if (packageAliases.size > 0 &&
           [...packageAliases].some(a => nodeId.startsWith(`${a}:`))) {
         continue;
@@ -322,10 +297,7 @@ program
         continue;
       }
 
-      // Build project context: only include files from nodes that the current
-      // node directly depends on, capped to reduce token cost.
       const MAX_FILE_CHARS = 2000;
-      const nodeMap = new Map(project.nodes.map(n => [n.id, n]));
       const dependents = node.meta.depends_on;
       let projectContext = project.nodes.map(n => `Node: ${n.id}, Path: ${n.meta.path}`).join('\n');
       projectContext += '\n\n--- Relevant dependency files ---\n';
@@ -383,8 +355,6 @@ program
       }
     }
 
-    // Generate combined test files — one per chunk (TEST_CHUNK nodes) so each
-    // request stays small enough to avoid provider timeouts on slow local models.
     const TEST_CHUNK = 2;
     const combinedTestPaths: string[] = [];
     if (pendingTestNodes.length > 0) {
@@ -417,7 +387,6 @@ program
       const bugContext = buildBugContext(cwd);
       let allPassed = true;
 
-      // Single test run — prefer combined test files, fall back to per-node files.
       let testTarget: string;
       const existingCombined = combinedTestPaths.filter(f => fs.existsSync(f));
       if (existingCombined.length > 0) {
@@ -440,7 +409,6 @@ program
           console.log(colors.green(colors.bold('\n[TEST] All tests passed.')));
         } else {
           console.log(colors.yellow(colors.bold('\n[TEST] Some tests failed. Attempting self-healing...')));
-          // Fix each failing node in dependency order
           for (const nodeId of compiledNodeIds) {
             const node = project.nodes.find(n => n.id === nodeId)!;
             if (node.type === 'setup-command' || node.type === 'config-file') continue;
@@ -459,10 +427,6 @@ program
         }
       }
 
-      // Post-codegen BUILD verification + auto-fix loop (the strongest oracle:
-      // catches framework rules like Next.js 'use client', module resolution,
-      // type and cross-file errors that per-file tsc cannot).  Runs for every
-      // compile (even when nodes are served from cache).  Enabled by default.
       if (options.buildCheck !== false) {
         const built = await runBuildLoop(cwd, project.stack, codegen, writer);
         if (!built) {
@@ -578,7 +542,7 @@ program
       }
     });
 
-    const PxmlDiagnostics = require('../diagnostics/index.js').PxmlDiagnostics;
+    const { PxmlDiagnostics } = require('@pxml/core');
     console.log('Running diagnostics on logs...');
 
     for (const log of logs) {
@@ -639,7 +603,6 @@ program
       }
     }
 
-    // Load bugs_history.xml if it exists to add regression prevention checklist
     const bugsHistoryPath = path.join(cwd, 'bugs_history.xml');
     if (fs.existsSync(bugsHistoryPath)) {
       try {
@@ -668,11 +631,9 @@ program
     }
 
     for (const node of targetNodes) {
-      // Check if node is failing tests, or force fix if a custom bug context is provided
       console.log(`[FIX] Verifying node: ${node.id}`);
       const testRes = runner.runNodeTests(node, project.stack);
       if (!testRes.passed || bugContext) {
-        // If bugContext is provided, force run at least once by passing a flag or bypassing check
         const success = await runFixLoop(node, cwd, manifest, codegen, runner, writer, undefined, bugContext, !!bugContext, project.stack);
         if (success) {
           console.log(`[FIX] Node ${node.id} healed successfully.`);
@@ -695,145 +656,141 @@ program
   });
 
 program
-.command('migrate')
-.description('Migrate project XML files and schema to the latest pxml syntax version')
-.action(() => {
-  const cwd = process.cwd();
-  const projectXml = path.join(cwd, 'project.xml');
-  if (!fs.existsSync(projectXml)) {
-    console.error('project.xml not found. Run pxml init first.');
-    process.exit(1);
-  }
-  const fileUrl = new URL(import.meta.url);
-  const xsdSource = path.resolve(path.dirname(fileUrl.pathname), '../../pxml.xsd');
-  const bugsXsdSource = path.resolve(path.dirname(fileUrl.pathname), '../../bugs.xsd');
+  .command('migrate')
+  .description('Migrate project XML files and schema to the latest pxml syntax version')
+  .action(() => {
+    const cwd = process.cwd();
+    const projectXml = path.join(cwd, 'project.xml');
+    if (!fs.existsSync(projectXml)) {
+      console.error('project.xml not found. Run pxml init first.');
+      process.exit(1);
+    }
+    const xsdSource = resolveXsd('pxml.xsd');
+    const bugsXsdSource = resolveXsd('bugs.xsd');
 
-  let updated = false;
+    let updated = false;
 
-  function findXmlFiles(dir: string): string[] {
-    const results: string[] = [];
-    if (!fs.existsSync(dir)) return results;
-    const list = fs.readdirSync(dir);
-    for (const file of list) {
-      const filePath = path.join(dir, file);
-      const stat = fs.statSync(filePath);
-      if (stat && stat.isDirectory()) {
-        if (file === 'node_modules' || file === '.git' || file === '.pxml' || file === 'dist') {
-          continue;
+    function findXmlFiles(dir: string): string[] {
+      const results: string[] = [];
+      if (!fs.existsSync(dir)) return results;
+      const list = fs.readdirSync(dir);
+      for (const file of list) {
+        const filePath = path.join(dir, file);
+        const stat = fs.statSync(filePath);
+        if (stat && stat.isDirectory()) {
+          if (file === 'node_modules' || file === '.git' || file === '.pxml' || file === 'dist') {
+            continue;
+          }
+          results.push(...findXmlFiles(filePath));
+        } else if (file.endsWith('.xml')) {
+          results.push(filePath);
         }
-        results.push(...findXmlFiles(filePath));
-      } else if (file.endsWith('.xml')) {
-        results.push(filePath);
       }
-    }
-    return results;
-  }
-
-  function updateXmlAttributes(content: string, tagName: string, updates: Record<string, string>): { content: string, updated: boolean } {
-    const tagRegex = new RegExp(`<${tagName}\\s+([^>]*?)(\\/?)>`, 's');
-    const match = content.match(tagRegex);
-    if (!match) return { content, updated: false };
-
-    const [fullTag, attrString, selfClosing] = match;
-    const attrs: Record<string, string> = {};
-    const attrRegex = /([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
-    let attrMatch;
-    while ((attrMatch = attrRegex.exec(attrString)) !== null) {
-      attrs[attrMatch[1]] = attrMatch[2] || attrMatch[3] || '';
+      return results;
     }
 
-    let changed = false;
-    for (const [key, value] of Object.entries(updates)) {
-      if (attrs[key] !== value) {
-        attrs[key] = value;
-        changed = true;
+    function updateXmlAttributes(content: string, tagName: string, updates: Record<string, string>): { content: string, updated: boolean } {
+      const tagRegex = new RegExp(`<${tagName}\\s+([^>]*?)(\\/?)>`, 's');
+      const match = content.match(tagRegex);
+      if (!match) return { content, updated: false };
+
+      const [fullTag, attrString, selfClosing] = match;
+      const attrs: Record<string, string> = {};
+      const attrRegex = /([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+      let attrMatch;
+      while ((attrMatch = attrRegex.exec(attrString)) !== null) {
+        attrs[attrMatch[1]] = attrMatch[2] || attrMatch[3] || '';
       }
+
+      let changed = false;
+      for (const [key, value] of Object.entries(updates)) {
+        if (attrs[key] !== value) {
+          attrs[key] = value;
+          changed = true;
+        }
+      }
+
+      if (!changed) return { content, updated: false };
+
+      const newAttrString = Object.entries(attrs)
+        .map(([k, v]) => `${k}="${v}"`)
+        .join('\n         ');
+
+      const newTag = `<${tagName} ${newAttrString}${selfClosing ? ' /' : ''}>`;
+      const startIndex = match.index!;
+      const newContent = content.slice(0, startIndex) + newTag + content.slice(startIndex + fullTag.length);
+      return { content: newContent, updated: true };
     }
 
-    if (!changed) return { content, updated: false };
+    const xmlFiles = findXmlFiles(cwd);
+    for (const xmlFile of xmlFiles) {
+      let content = fs.readFileSync(xmlFile, 'utf-8');
+      let fileUpdated = false;
 
-    const newAttrString = Object.entries(attrs)
-      .map(([k, v]) => `${k}="${v}"`)
-      .join('\n         ');
-
-    const newTag = `<${tagName} ${newAttrString}${selfClosing ? ' /' : ''}>`;
-    const startIndex = match.index!;
-    const newContent = content.slice(0, startIndex) + newTag + content.slice(startIndex + fullTag.length);
-    return { content: newContent, updated: true };
-  }
-
-  // 1. Scan and update all XML files in project
-  const xmlFiles = findXmlFiles(cwd);
-  for (const xmlFile of xmlFiles) {
-    let content = fs.readFileSync(xmlFile, 'utf-8');
-    let fileUpdated = false;
-
-    const relDir = path.relative(path.dirname(xmlFile), cwd);
-    
-    if (content.includes('<project')) {
-      const xsdPath = relDir ? path.join(relDir, 'pxml.xsd') : 'pxml.xsd';
-      const updates: Record<string, string> = {
-        'xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
-        'xsi:noNamespaceSchemaLocation': xsdPath,
-      };
+      const relDir = path.relative(path.dirname(xmlFile), cwd);
       
-      // Only set autogen-tests="true" if it wasn't already specified as false
-      if (!content.includes('autogen-tests=')) {
-        updates['autogen-tests'] = 'true';
+      if (content.includes('<project')) {
+        const xsdPath = relDir ? path.join(relDir, 'pxml.xsd') : 'pxml.xsd';
+        const updates: Record<string, string> = {
+          'xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+          'xsi:noNamespaceSchemaLocation': xsdPath,
+        };
+        
+        if (!content.includes('autogen-tests=')) {
+          updates['autogen-tests'] = 'true';
+        }
+
+        const res = updateXmlAttributes(content, 'project', updates);
+        if (res.updated) {
+          content = res.content;
+          fileUpdated = true;
+        }
+      } else if (content.includes('<bugs')) {
+        const bugsXsdPath = relDir ? path.join(relDir, 'bugs.xsd') : 'bugs.xsd';
+        const updates = {
+          'xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+          'xsi:noNamespaceSchemaLocation': bugsXsdPath,
+        };
+        const res = updateXmlAttributes(content, 'bugs', updates);
+        if (res.updated) {
+          content = res.content;
+          fileUpdated = true;
+        }
       }
 
-      const res = updateXmlAttributes(content, 'project', updates);
-      if (res.updated) {
-        content = res.content;
-        fileUpdated = true;
-      }
-    } else if (content.includes('<bugs')) {
-      const bugsXsdPath = relDir ? path.join(relDir, 'bugs.xsd') : 'bugs.xsd';
-      const updates = {
-        'xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
-        'xsi:noNamespaceSchemaLocation': bugsXsdPath,
-      };
-      const res = updateXmlAttributes(content, 'bugs', updates);
-      if (res.updated) {
-        content = res.content;
-        fileUpdated = true;
+      if (fileUpdated) {
+        fs.writeFileSync(xmlFile, content, 'utf-8');
+        updated = true;
+        console.log(`Updated XML schema references: ${path.relative(cwd, xmlFile)}`);
       }
     }
 
-    if (fileUpdated) {
-      fs.writeFileSync(xmlFile, content, 'utf-8');
-      updated = true;
-      console.log(`Updated XML schema references: ${path.relative(cwd, xmlFile)}`);
+    const rootProjectXml = path.join(cwd, 'project.xml');
+    if (fs.existsSync(rootProjectXml)) {
+      try {
+        const mp = new PxmlParser();
+        syncEditorSchema(cwd, mp.parse(rootProjectXml));
+      } catch {
+        // editor-schema sync is best-effort; never block migrate
+      }
     }
-  }
+    for (const [src, destName] of [[xsdSource, 'pxml.xsd'], [bugsXsdSource, 'bugs.xsd']]) {
+      const dest = path.join(cwd, destName);
+      const buf = fs.readFileSync(src);
+      const existing = fs.existsSync(dest) ? fs.readFileSync(dest) : Buffer.alloc(0);
+      if (!buf.equals(existing)) {
+        fs.writeFileSync(dest, buf);
+        updated = true;
+        console.log(`Updated schema file: ${destName}`);
+      }
+    }
 
-  // 2. Copy/update XSD schema files in the project root
-  const rootProjectXml = path.join(cwd, 'project.xml');
-  if (fs.existsSync(rootProjectXml)) {
-    try {
-      const mp = new PxmlParser();
-      syncEditorSchema(cwd, mp.parse(rootProjectXml));
-    } catch {
-      // editor-schema sync is best-effort; never block migrate
+    if (updated) {
+      console.log('Project files updated to latest syntax.');
+    } else {
+      console.log('Project is already up to date.');
     }
-  }
-  for (const [src, destName] of [[xsdSource, 'pxml.xsd'], [bugsXsdSource, 'bugs.xsd']]) {
-    const dest = path.join(cwd, destName);
-    const buf = fs.readFileSync(src);
-    const existing = fs.existsSync(dest) ? fs.readFileSync(dest) : Buffer.alloc(0);
-    if (!buf.equals(existing)) {
-      fs.writeFileSync(dest, buf);
-      updated = true;
-      console.log(`Updated schema file: ${destName}`);
-    }
-  }
-
-  if (updated) {
-    console.log('Project files updated to latest syntax.');
-  } else {
-    console.log('Project is already up to date.');
-  }
-});
+  });
 
 const pluginCmd = program
   .command('plugin')
@@ -878,7 +835,7 @@ pluginCmd
   });
 
 program
-.command('doctor')
+  .command('doctor')
   .description('Diagnostics checklist (configurations, env keys, databases)')
   .action(() => {
     console.log('--- Doctor Check ---');
@@ -980,29 +937,29 @@ function injectHistoricalBugs(nodes: any[], cwd: string) {
 
 function calculateEstimatedCost(model: string, stats: { inputTokens: number; outputTokens: number; cachedTokens: number }): number {
   const modelLower = model.toLowerCase();
-  let inputRate = 0.000003; // Default input rate per token ($3/M)
-  let outputRate = 0.000015; // Default output rate per token ($15/M)
-  let cacheReadRate = 0.0000003; // Default cache read rate ($0.30/M)
+  let inputRate = 0.000003;
+  let outputRate = 0.000015;
+  let cacheReadRate = 0.0000003;
 
   if (modelLower.includes('gpt-4o-mini')) {
-    inputRate = 0.00000015; // $0.15/M
-    outputRate = 0.0000006; // $0.60/M
+    inputRate = 0.00000015;
+    outputRate = 0.0000006;
     cacheReadRate = 0.000000075;
   } else if (modelLower.includes('gpt-4o')) {
-    inputRate = 0.000005; // $5/M
-    outputRate = 0.000015; // $15/M
+    inputRate = 0.000005;
+    outputRate = 0.000015;
     cacheReadRate = 0.0000025;
   } else if (modelLower.includes('haiku')) {
-    inputRate = 0.00000025; // $0.25/M
-    outputRate = 0.00000125; // $1.25/M
+    inputRate = 0.00000025;
+    outputRate = 0.00000125;
     cacheReadRate = 0.00000003;
   } else if (modelLower.includes('sonnet')) {
-    inputRate = 0.000003; // $3/M
-    outputRate = 0.000015; // $15/M
-    cacheReadRate = 0.0000003; // $0.30/M
+    inputRate = 0.000003;
+    outputRate = 0.000015;
+    cacheReadRate = 0.0000003;
   } else if (modelLower.includes('opus')) {
-    inputRate = 0.000015; // $15/M
-    outputRate = 0.000075; // $75/M
+    inputRate = 0.000015;
+    outputRate = 0.000075;
     cacheReadRate = 0.0000015;
   }
 

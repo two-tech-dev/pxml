@@ -1,0 +1,12 @@
+node_modules
+dist
+.pxml
+.git
+pnpm-lock.yaml
+*.md
+examples/
+fixtures/
+docs/
+packages/*/node_modules
+packages/*/dist
+src.bak

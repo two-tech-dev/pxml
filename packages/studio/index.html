@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pxml Studio</title>
+    <style>
+      *,*::before,*::after{box-sizing:border-box}
+      body{
+        margin:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+        font-size:13px;overflow:hidden;background:#1e1e1e;color:#cccccc;
+        -webkit-font-smoothing:antialiased;
+      }
+      :root {
+        --bg-primary:#1e1e1e;
+        --bg-secondary:#252526;
+        --bg-tertiary:#2d2d2d;
+        --bg-input:#1e1e1e;
+        --bg-hover:#2a2d2e;
+        --border:#3e3e42;
+        --border-muted:#2d2d2d;
+        --text-primary:#cccccc;
+        --text-secondary:#999999;
+        --text-muted:#858585;
+        --accent:#007acc;
+        --accent-emphasis:#007acc;
+        --accent-subtle:rgba(0,122,204,0.1);
+        --success:#89d185;
+        --success-subtle:rgba(137,209,133,0.1);
+        --warning:#cca700;
+        --warning-subtle:rgba(204,167,0,0.1);
+        --danger:#f44747;
+        --danger-subtle:rgba(244,71,71,0.1);
+        --purple:#b180d7;
+        --purple-subtle:rgba(177,128,215,0.1);
+        --scrollbar:#424242;
+      }
+      ::-webkit-scrollbar{width:8px;height:8px}
+      ::-webkit-scrollbar-track{background:transparent}
+      ::-webkit-scrollbar-thumb{background:var(--scrollbar);border-radius:4px}
+      ::-webkit-scrollbar-thumb:hover{background:#484f58}
+      ::-webkit-scrollbar-corner{background:transparent}
+      input,select,textarea{
+        font-family:'JetBrains Mono','Fira Code','Consolas',monospace;
+        font-size:12px;background:var(--bg-input);color:var(--text-primary);
+        border:1px solid var(--border);border-radius:6px;outline:none;
+        transition:border-color 0.15s;
+      }
+      input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-subtle)}
+      input::placeholder,textarea::placeholder{color:var(--text-muted)}
+      button{
+        font-family:inherit;cursor:pointer;border:none;background:none;
+        color:var(--text-primary);font-size:12px;border-radius:6px;
+        transition:background 0.15s,opacity 0.15s;
+      }
+      button:disabled{opacity:0.4;cursor:default}
+      select{padding:4px 8px;cursor:pointer}
+      @keyframes spin{to{transform:rotate(360deg)}}
+      @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}
+      @keyframes fadeIn{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+      @keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/client/main.tsx"></script>
+  </body>
+</html>

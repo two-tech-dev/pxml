@@ -215,7 +215,7 @@ export class PxmlParser {
           const parts = imp.from.replace(/^github:/, '').split('/');
           const owner = parts[0];
           const repo = parts[1];
-          const cacheDir = path.join(process.cwd(), '.pxml', 'packages', 'github', owner, repo);
+          const cacheDir = path.join(baseDir, '.pxml', 'packages', 'github', owner, repo);
           if (!fs.existsSync(cacheDir)) {
             fs.mkdirSync(cacheDir, { recursive: true });
             const gitUrl = `https://github.com/${owner}/${repo}.git`;
@@ -224,7 +224,7 @@ export class PxmlParser {
           }
           importedPath = path.join(cacheDir, 'project.xml');
         } else {
-          importedPath = path.resolve(process.cwd(), imp.from, 'project.xml');
+          importedPath = path.resolve(baseDir, imp.from, 'project.xml');
         }
       }
 
