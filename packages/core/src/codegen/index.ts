@@ -39,11 +39,47 @@ const colors = {
   bold: (text: string) => `\x1b[1m${text}\x1b[0m`
 };
 
-// Re-export for downstream consumers that still reference the old API
 export const IMPORT_RULES = getImportRules('nextjs');
 
+// ── Token budget ──────────────────────────────────────────────────
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 3.5);
+}
+const TOKEN_WARN = 6000;
+const TOKEN_MAX = 14000;
+
+function buildPromptSummary(label: string, prompt: string, systemPrompt: string) {
+  const pt = estimateTokens(prompt);
+  const st = estimateTokens(systemPrompt);
+  const total = pt + st;
+  if (total > TOKEN_WARN) {
+    console.warn(`${colors.yellow('[TOKEN]')} ${label}: ~${total} tokens (prompt ${pt} + system ${st})`);
+  }
+  return total;
+}
+
+// ── Prompts override ──────────────────────────────────────────────
+const _overrideCache = new Map<string, string | null>();
+
+function resolvePromptOverride(cwd: string, key: string, fallback: string): string {
+  const cacheKey = `${cwd}:${key}`;
+  if (_overrideCache.has(cacheKey)) return _overrideCache.get(cacheKey)!;
+  const file = path.join(cwd, '.pxml', 'prompts', `${key}.txt`);
+  if (fs.existsSync(file)) {
+    const content = fs.readFileSync(file, 'utf-8').trim();
+    if (content) {
+      console.log(`${colors.cyan('[PROMPTS]')} Using override: .pxml/prompts/${key}.txt`);
+      _overrideCache.set(cacheKey, content);
+      return content;
+    }
+  }
+  _overrideCache.set(cacheKey, fallback);
+  return fallback;
+}
+
+// ── AIProvider ────────────────────────────────────────────────────
 export interface AIProvider {
-  generate(prompt: string, systemPrompt: string, model: string, images?: string[]): Promise<string>;
+  generate(prompt: string, systemPrompt: string, model: string, images?: string[], temperature?: number): Promise<string>;
 }
 
 export class AnthropicProvider implements AIProvider {
@@ -55,7 +91,7 @@ export class AnthropicProvider implements AIProvider {
     this.maxRetries = maxRetries;
   }
 
-  async generate(prompt: string, systemPrompt: string, model: string, images: string[] = []): Promise<string> {
+  async generate(prompt: string, systemPrompt: string, model: string, images: string[] = [], temperature = 0.2): Promise<string> {
     let attempt = 0;
     while (attempt < this.maxRetries) {
       attempt++;
@@ -72,7 +108,10 @@ export class AnthropicProvider implements AIProvider {
         const response = await this.client.messages.create({
           model,
           max_tokens: 8192,
-          system: systemPrompt,
+          temperature,
+          system: [
+            { type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }
+          ],
           messages: [{ role: 'user', content }]
         });
         if (response.usage) {
@@ -104,7 +143,7 @@ export class OpenAICompatibleProvider implements AIProvider {
     this.baseUrl = baseUrl;
   }
 
-  async generate(prompt: string, systemPrompt: string, model: string, images: string[] = []): Promise<string> {
+  async generate(prompt: string, systemPrompt: string, model: string, images: string[] = [], temperature = 0.2): Promise<string> {
     const maxRetries = 3;
     let attempt = 0;
 
@@ -130,7 +169,7 @@ export class OpenAICompatibleProvider implements AIProvider {
               { role: 'system', content: systemPrompt },
               { role: 'user', content: images.length > 0 ? userContent : prompt }
             ],
-            temperature: 0.2,
+            temperature,
             stream: false
           }),
           signal: controller.signal
@@ -172,7 +211,7 @@ export class OllamaProvider implements AIProvider {
     this.baseUrl = baseUrl;
   }
 
-  async generate(prompt: string, systemPrompt: string, model: string, images: string[] = []): Promise<string> {
+  async generate(prompt: string, systemPrompt: string, model: string, images: string[] = [], temperature = 0.2): Promise<string> {
     const maxRetries = 3;
     let attempt = 0;
 
@@ -186,7 +225,7 @@ export class OllamaProvider implements AIProvider {
           model,
           prompt: `${systemPrompt}\n\nUser specifications:\n${prompt}`,
           stream: false,
-          options: { temperature: 0.2 }
+          options: { temperature }
         };
         if (images.length > 0) {
           body.images = images.map(img => img.split('base64,')[1] || img);
@@ -224,6 +263,7 @@ export class OllamaProvider implements AIProvider {
   }
 }
 
+// ── CodegenConfig ──────────────────────────────────────────────────
 export interface CodegenConfig {
   provider?: 'anthropic' | 'openai' | 'ollama' | 'custom';
   apiKey?: string;
@@ -233,6 +273,7 @@ export interface CodegenConfig {
   mockResponse?: (node: Node) => string;
   skipVerification?: boolean;
   skipValidation?: boolean;
+  cwd?: string;
 }
 
 export class PxmlCodegen {
@@ -263,11 +304,9 @@ export class PxmlCodegen {
     return { inputTokens: 0, outputTokens: 0, cachedTokens: 0 };
   }
 
-  async generateDirect(prompt: string, systemPrompt: string, images: string[] = []): Promise<string> {
-    if (!this.provider) {
-      throw new Error(`AI Provider is not configured.`);
-    }
-    return this.provider.generate(prompt, systemPrompt, this.config.model, images);
+  async generateDirect(prompt: string, systemPrompt: string, images: string[] = [], temperature = 0.1): Promise<string> {
+    if (!this.provider) throw new Error(`AI Provider is not configured.`);
+    return this.provider.generate(prompt, systemPrompt, this.config.model, images, temperature);
   }
 
   async generateNodeCode(
@@ -279,6 +318,7 @@ export class PxmlCodegen {
   ): Promise<string> {
     const stackInfo = getStackInstructions(stack);
     const importRules = getImportRules(stack);
+    const cwdDir = this.config.cwd || cwd;
 
     if (node.type === 'setup-command') {
       if (this.config.mockResponse) {
@@ -341,12 +381,12 @@ export class PxmlCodegen {
     if (!this.provider) throw new Error(`AI Provider is not configured.`);
 
     const prompt = this.buildPrompt(node, projectContext, stackInfo.promptNote);
-    const systemPrompt = stackInfo.systemPrompt + '\n' + importRules;
+    const systemPrompt = resolveSystemPrompt(cwdDir, 'codegen', stackInfo.systemPrompt + '\n' + importRules);
+    buildPromptSummary(`[GEN] ${node.id}`, prompt, systemPrompt);
 
-    const code = await this.provider.generate(prompt, systemPrompt, this.config.model, (node as any).images || []);
-    let cleanedCode = this.cleanMarkdown(code);
+    const code = await this.provider.generate(prompt, systemPrompt, this.config.model, (node as any).images || [], 0.2);
+    let cleanedCode = this.tryStructuredExtract(code);
 
-    // Verification ON by default; --no-verify skips it
     if (!this.config.skipVerification) {
       try {
         const vPrompt = verifyUserPrompt({
@@ -355,7 +395,8 @@ export class PxmlCodegen {
           constraints: node.constraints,
           code: cleanedCode,
         });
-        const vResp = await this.provider.generate(vPrompt, VERIFY_SYSTEM, this.config.model);
+        const verSys = resolvePromptOverride(cwdDir, 'verify', VERIFY_SYSTEM);
+        const vResp = await this.provider.generate(vPrompt, verSys, this.config.model, [], 0.1);
         const vClean = this.cleanMarkdown(vResp);
         if (vClean.toUpperCase() !== 'STABLE' && vClean.length > 20) {
           console.log(`${colors.green(colors.bold('[VERIFY]'))} AI self-corrected generated code for node: ${node.id}`);
@@ -366,8 +407,7 @@ export class PxmlCodegen {
       }
     }
 
-    writer.write(node.meta.path, cleanedCode);
-    this.logAIResponse(node.id, prompt, cleanedCode);
+    this.finalizeWrite(node, writer, cleanedCode, prompt);
 
     if (!this.config.skipValidation && node.meta.path && node.type !== 'setup-command') {
       const maxV = 3;
@@ -376,7 +416,7 @@ export class PxmlCodegen {
         if (vres.ok) break;
 
         if (attempt === 1) {
-          console.log(`${colors.yellow(colors.bold('[VALIDATE]'))} Node ${node.id} has syntax/type errors, auto-fixing (compiler as oracle)...`);
+          console.log(`${colors.yellow(colors.bold('[VALIDATE]'))} Node ${node.id} has syntax/type errors, auto-fixing...`);
         }
 
         const absPath = path.resolve(cwd, node.meta.path);
@@ -389,7 +429,8 @@ export class PxmlCodegen {
         });
 
         try {
-          const patch = await this.generateDirect(fPrompt, VALIDATE_FIX_SYSTEM);
+          const valSys = resolvePromptOverride(cwdDir, 'validate-fix', VALIDATE_FIX_SYSTEM);
+          const patch = await this.generateDirect(fPrompt, valSys, [], 0.1);
           if (patch.trim().toUpperCase() === 'NODEP') {
             console.log(`${colors.yellow('[VALIDATE]')} Node ${node.id}: dependency error detected, skipping code fix.`);
             break;
@@ -405,6 +446,11 @@ export class PxmlCodegen {
     }
 
     return cleanedCode;
+  }
+
+  private finalizeWrite(node: Node, writer: FileWriter, cleanedCode: string, prompt: string): void {
+    writer.write(node.meta.path, cleanedCode);
+    this.logAIResponse(node.id, prompt, cleanedCode);
   }
 
   async generateNodeTest(
@@ -462,7 +508,8 @@ export class PxmlCodegen {
       });
     }
 
-    const testCode = await this.provider.generate(prompt, TEST_SYSTEM, this.config.model);
+    const testSys = resolvePromptOverride(this.config.cwd || process.cwd(), 'test', TEST_SYSTEM);
+    const testCode = await this.provider.generate(prompt, testSys, this.config.model, [], 0.3);
     const cleaned = this.cleanMarkdown(testCode);
     writer.write(testPath, cleaned);
     this.logAIResponse(node.id + "_test", prompt, cleaned);
@@ -482,7 +529,6 @@ export class PxmlCodegen {
       return combinedPath;
     }
 
-    // Chunk nodes into groups of 2 to avoid token overflow
     const CHUNK_SIZE = 2;
     const nodeGroups: Node[][] = [];
     for (let i = 0; i < nodes.length; i += CHUNK_SIZE) {
@@ -510,7 +556,8 @@ XML Specs:
       });
 
       const prompt = combinedTestPrompt({ sections: sections.join('\n') });
-      const response = await this.provider.generate(prompt, COMBINED_TEST_SYSTEM, this.config.model);
+      const comboSys = resolvePromptOverride(this.config.cwd || cwd, 'combined-test', COMBINED_TEST_SYSTEM);
+      const response = await this.provider.generate(prompt, comboSys, this.config.model, [], 0.3);
       const cleaned = this.cleanMarkdown(response);
 
       const groupPath = nodeGroups.length > 1
@@ -523,6 +570,8 @@ XML Specs:
 
     return allPaths.join('\n');
   }
+
+  // ── Helpers ─────────────────────────────────────────────────────
 
   private buildPrompt(node: Node, projectContext: string, promptNote: string): string {
     return codegenUserPrompt({
@@ -545,6 +594,21 @@ XML Specs:
     });
   }
 
+  private tryStructuredExtract(raw: string): string {
+    const trimmed = raw.trim();
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        const obj = JSON.parse(trimmed);
+        if (obj.code) return obj.code;
+        if (obj.content) return obj.content;
+        if (obj.files && Array.isArray(obj.files)) {
+          return obj.files.map((f: any) => f.content || '').join('\n');
+        }
+      } catch {}
+    }
+    return this.cleanMarkdown(raw);
+  }
+
   private cleanMarkdown(code: string): string {
     let cleaned = code.replace(/^```[a-zA-Z]*\n/, '').replace(/\n```$/, '').trim();
     cleaned = cleaned.replace(/\s*→\s*skipped:.*$/gm, '');
@@ -560,4 +624,9 @@ XML Specs:
     const logContent = `--- PROMPT ---\n${prompt}\n\n--- RESPONSE ---\n${response}\n`;
     fs.writeFileSync(logPath, logContent, 'utf-8');
   }
+}
+
+// ── System prompt override helpers ────────────────────────────────
+function resolveSystemPrompt(cwd: string, key: string, fallback: string): string {
+  return resolvePromptOverride(cwd, `system-${key}`, fallback);
 }

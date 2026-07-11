@@ -1,6 +1,6 @@
 {
   "name": "@two-tech-dev/pxml-core",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "pxml core library — parser, codegen, runner, and all compilation logic",
   "type": "module",
   "main": "dist/index.js",
@@ -10,7 +10,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.22.0",
+    "@anthropic-ai/sdk": "^0.111.0",
     "@two-tech-dev/pxml-prompts": "workspace:*",
     "fast-xml-parser": "^4.4.0",
     "zod": "^3.23.8"

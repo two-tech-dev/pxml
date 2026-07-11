@@ -249,7 +249,8 @@ program
       baseUrl: options.baseUrl,
       model: options.model,
       skipVerification: options.noVerify ?? false,
-      skipValidation: !options.validate
+      skipValidation: !options.validate,
+      cwd
     });
 
     console.log(`Compiling project ${project.name} (stack: ${project.stack})...`);
