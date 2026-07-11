@@ -32,9 +32,10 @@ function GraphNode({ data }: NodeProps) {
 
   return (
     <div style={{
-      padding: '12px 16px', borderRadius: 10, fontSize: 12, border: '1.5px solid',
+      padding: '12px 16px', borderRadius: 10, fontSize: 12,
+      border: `1.5px solid ${accent}`,
       minWidth: 220, maxWidth: 280, backgroundColor: '#1e1e1e',
-      borderColor: accent, transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
+      transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
       boxShadow: shadow,
       animation: status === 'compiling' ? 'pulse 1.5s ease-in-out infinite' : 'fadeIn 0.2s ease-out',
       cursor: 'pointer',

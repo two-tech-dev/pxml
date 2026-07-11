@@ -58,8 +58,8 @@ export function Toolbar() {
   async function handleExport() { const p = await exportXml(); if(p) append({type:'success',message:`Exported to ${p}`}); }
 
   const cost = costSummary ? `$${((costSummary.inputTokens*0.000003)+(costSummary.outputTokens*0.000015)).toFixed(3)}` : null;
-  const B = (bg?:string) => ({ padding:'5px 12px', fontSize:12, fontWeight:500, borderRadius:6, transition:'all 0.15s', background:bg || '#252526', color:'#cccccc', border:'1px solid #3e3e42' }) as React.CSSProperties;
-  const BP = { ...B('#007acc'), color:'#fff', borderColor:'#007acc', fontWeight:600 };
+  const B = (bg?:string, borderColor = '#3e3e42') => ({ padding:'5px 12px', fontSize:12, fontWeight:500, borderRadius:6, transition:'all 0.15s', background:bg || '#252526', color:'#cccccc', border:`1px solid ${borderColor}` }) as React.CSSProperties;
+  const BP = { ...B('#007acc', '#007acc'), color:'#fff', fontWeight:600 };
 
   return (
     <>

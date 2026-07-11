@@ -319,6 +319,7 @@ async function runCompile(opts: {
       });
     } catch (err: any) {
       broadcast({ type: 'compile:node:error', nodeId, message: `Failed: ${err.message}` });
+      broadcast({ type: 'compile:done', message: `Compilation aborted: ${err.message}`, error: true });
       writer.rollback();
       return;
     }
