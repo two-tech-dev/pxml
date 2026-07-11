@@ -6,6 +6,7 @@ import { NodeTypePalette } from './NodeTypePalette.js';
 import { GraphCanvas } from '../graph/GraphCanvas.js';
 import { PropertyPanel } from '../panels/PropertyPanel.js';
 import { OutputPanel } from '../panels/OutputPanel.js';
+import { Icons } from '../icons.js';
 
 export function AppShell() {
   const sidebarOpen = useUIStore(s => s.leftPanelOpen);
@@ -58,55 +59,80 @@ export function AppShell() {
     document.addEventListener('mouseup', onUp);
   }, [rightPanelWidth, setRightWidth]);
 
-  const div = (s: React.CSSProperties) => s;
-
   return (
     <ReactFlowProvider>
-      <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#1e1e1e' }}>
+      <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#0a0a0a' }}>
         <Toolbar />
 
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-          <div style={div({ width: 48, background: '#252526', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 8, gap: 2, flexShrink: 0, borderRight: '1px solid #2d2d2d' })}>
-            <ActBtn active={sidebarOpen} onClick={toggleSidebar} icon="⊞" label="Explorer" />
-            <ActBtn active={rightPanelOpen} onClick={toggleRightPanel} icon="⊟" label="Properties" />
+          {/* Activity Bar */}
+          <div style={{
+            width: 48, background: '#0a0a0a', display: 'flex', flexDirection: 'column',
+            alignItems: 'center', paddingTop: 8, gap: 2, flexShrink: 0,
+            borderRight: '1px solid #171717',
+          }}>
+            <ActBtn active={sidebarOpen} onClick={toggleSidebar} Icon={Icons.panelLeft} label="Explorer" />
+            <ActBtn active={rightPanelOpen} onClick={toggleRightPanel} Icon={Icons.panelRight} label="Properties" />
             <div style={{ flex: 1 }} />
           </div>
 
+          {/* Left Panel */}
           {sidebarOpen && (
-            <div style={div({ width: leftPanelWidth, flexShrink: 0, background: '#252526', borderRight: '1px solid #3e3e42', position: 'relative' })}>
+            <div style={{
+              width: leftPanelWidth, flexShrink: 0, background: '#111111',
+              borderRight: '1px solid #1f1f1f', position: 'relative',
+            }}>
               <NodeTypePalette />
-              <div onMouseDown={onLeftResize} style={{ position: 'absolute', right: -3, top: 0, bottom: 0, width: 6, cursor: 'col-resize', zIndex: 20 }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#007acc66')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')} />
+              <div onMouseDown={onLeftResize}
+                style={{ position: 'absolute', right: -3, top: 0, bottom: 0, width: 6, cursor: 'col-resize', zIndex: 20 }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.15)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              />
             </div>
           )}
 
-          <div style={{ flex: 1, position: 'relative', background: '#1e1e1e' }}>
+          {/* Canvas */}
+          <div style={{ flex: 1, position: 'relative', background: '#0a0a0a' }}>
             <GraphCanvas />
           </div>
 
+          {/* Right Panel */}
           {rightPanelOpen && (
-            <div style={div({ width: rightPanelWidth, flexShrink: 0, background: '#252526', borderLeft: '1px solid #3e3e42', position: 'relative' })}>
-              <div onMouseDown={onRightResize} style={{ position: 'absolute', left: -3, top: 0, bottom: 0, width: 6, cursor: 'col-resize', zIndex: 20 }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#007acc66')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')} />
+            <div style={{
+              width: rightPanelWidth, flexShrink: 0, background: '#111111',
+              borderLeft: '1px solid #1f1f1f', position: 'relative',
+            }}>
+              <div onMouseDown={onRightResize}
+                style={{ position: 'absolute', left: -3, top: 0, bottom: 0, width: 6, cursor: 'col-resize', zIndex: 20 }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.15)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              />
               <PropertyPanel />
             </div>
           )}
         </div>
 
-        <div style={{ borderTop: '1px solid #3e3e42', flexShrink: 0 }}>
-          <div onClick={toggleBottom} style={div({
-            display: 'flex', alignItems: 'center', padding: '0 14px', height: 30, cursor: 'pointer',
-            background: '#252526', fontSize: 11, fontWeight: 600, letterSpacing: '0.5px',
-            color: '#999999', textTransform: 'uppercase', userSelect: 'none',
-          })}>
-            <span style={{ marginRight: 6, fontSize: 10 }}>{bottomOpen ? '▾' : '▸'}</span>
+        {/* Bottom Panel */}
+        <div style={{ borderTop: '1px solid #1f1f1f', flexShrink: 0 }}>
+          <div onClick={toggleBottom} style={{
+            display: 'flex', alignItems: 'center', padding: '0 14px', height: 32, cursor: 'pointer',
+            background: '#111111', fontSize: 11, fontWeight: 600, letterSpacing: '0.5px',
+            color: '#737373', textTransform: 'uppercase', userSelect: 'none',
+          }}
+            onMouseEnter={e => (e.currentTarget.style.background = '#171717')}
+            onMouseLeave={e => (e.currentTarget.style.background = '#111111')}
+          >
+            <Icons.chevronDown size={10} style={{ marginRight: 6, transition: 'transform 0.2s', transform: bottomOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }} />
             OUTPUT
             <StatusBadge />
           </div>
           {bottomOpen && (
             <>
-              <div onMouseDown={onBottomResize} style={{ height: 3, cursor: 'ns-resize', background: '#007acc', opacity: 0, transition: 'opacity 0.2s' }}
-                onMouseEnter={e => (e.currentTarget.style.opacity = '0.5')} onMouseLeave={e => (e.currentTarget.style.opacity = '0')} />
+              <div onMouseDown={onBottomResize}
+                style={{ height: 3, cursor: 'ns-resize', background: '#404040', opacity: 0, transition: 'opacity 0.15s' }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = '0.6')}
+                onMouseLeave={e => (e.currentTarget.style.opacity = '0')}
+              />
               <div style={{ height: bottomHeight, maxHeight: '60vh' }}>
                 <OutputPanel />
               </div>
@@ -120,19 +146,22 @@ export function AppShell() {
   );
 }
 
-function ActBtn({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: string; label: string }) {
+function ActBtn({ active, onClick, Icon, label }: { active: boolean; onClick: () => void; Icon: any; label: string }) {
   return (
     <button onClick={onClick} title={label} style={{
       width: 48, height: 42, display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: 18, color: active ? '#007acc' : '#858585', position: 'relative',
+      color: active ? '#e5e5e5' : '#525252', position: 'relative',
       transition: 'color 0.15s',
-    }}>
+    }}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.color = '#a3a3a3'; }}
+      onMouseLeave={e => { if (!active) e.currentTarget.style.color = '#525252'; }}
+    >
       <span style={{
         position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)',
-        width: 2, height: 20, background: '#007acc', borderRadius: '0 2px 2px 0',
+        width: 2, height: 20, background: '#e5e5e5', borderRadius: '0 2px 2px 0',
         opacity: active ? 1 : 0, transition: 'opacity 0.15s',
       }} />
-      {icon}
+      <Icon size={20} strokeWidth={1.5} />
     </button>
   );
 }
@@ -140,7 +169,14 @@ function ActBtn({ active, onClick, icon, label }: { active: boolean; onClick: ()
 function StatusBadge() {
   const nodeCount = useProjectStore(s => s.nodes.length);
   if (nodeCount === 0) return null;
-  return <span style={{ marginLeft: 8, fontSize: 10, background: '#252526', padding: '1px 6px', borderRadius: 10, color: '#999999' }}>{nodeCount}</span>;
+  return (
+    <span style={{
+      marginLeft: 8, fontSize: 10, background: '#171717', padding: '2px 8px',
+      borderRadius: 10, color: '#737373', border: '1px solid #262626',
+    }}>
+      {nodeCount}
+    </span>
+  );
 }
 
 function StatusBar() {
@@ -152,15 +188,16 @@ function StatusBar() {
 
   return (
     <div style={{
-      height: 24, background: '#007acc', color: '#fff', display: 'flex',
+      height: 22, background: '#171717', color: '#a3a3a3', display: 'flex',
       alignItems: 'center', padding: '0 12px', fontSize: 11, gap: 14, flexShrink: 0,
+      borderTop: '1px solid #1f1f1f',
     }}>
-      <span style={{ fontWeight: 700, letterSpacing: '0.3px' }}>pxml Studio</span>
-      {project && <span style={{ opacity: 0.9 }}>{project.name}{isDirty ? ' ●' : ''}</span>}
-      <span style={{ marginLeft: 'auto', opacity: 0.8, fontSize: 10 }}>
+      <span style={{ fontWeight: 600, letterSpacing: '0.3px', color: '#e5e5e5' }}>pxml Studio</span>
+      {project && <span>{project.name}{isDirty ? ' \u25cf' : ''}</span>}
+      <span style={{ marginLeft: 'auto', fontSize: 10 }}>
         {nodeCount} nodes · {edgeCount} edges
       </span>
-      {selectedNodeId && <span style={{ opacity: 0.9, fontFamily: 'monospace', fontSize: 10 }}>{selectedNodeId}</span>}
+      {selectedNodeId && <span style={{ fontFamily: 'monospace', fontSize: 10 }}>{selectedNodeId}</span>}
     </div>
   );
 }

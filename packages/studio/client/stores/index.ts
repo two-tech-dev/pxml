@@ -438,7 +438,7 @@ interface UIStore {
   bottomPanelHeight: number;
   leftPanelWidth: number;
   rightPanelWidth: number;
-  propertyPanelTab: 'basic' | 'fields' | 'constraints' | 'tests' | 'meta';
+  propertyPanelTab: 'basic' | 'fields' | 'constraints' | 'tests' | 'images' | 'meta';
   toggleTheme: () => void;
   toggleRightPanel: () => void;
   toggleBottomPanel: () => void;

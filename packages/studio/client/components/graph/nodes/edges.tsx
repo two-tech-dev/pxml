@@ -10,7 +10,7 @@ function DrawioEdge(props: EdgeProps) {
   const waypoints = (props.data as any)?.waypoints || [];
   const allPoints = [ { x: sourceX, y: sourceY }, ...waypoints, { x: targetX, y: targetY } ];
   const active = selected || hover;
-  const color = selected ? '#007acc' : hover ? '#999999' : '#858585';
+  const color = selected ? '#e5e5e5' : hover ? '#a3a3a3' : '#525252';
 
   let pathD = `M${allPoints[0].x},${allPoints[0].y}`;
   for (let i = 1; i < allPoints.length; i++) pathD += ` L${allPoints[i].x},${allPoints[i].y}`;
@@ -211,8 +211,8 @@ function ExtendsEdge({ sourceX, sourceY, targetX, targetY }: EdgeProps) {
   return (
     <g>
       <path d={d} fill="none" stroke="transparent" strokeWidth={14} />
-      <path d={d} fill="none" stroke="#b180d7" strokeWidth={1.5} strokeDasharray="5 4" opacity={0.6} />
-      <polygon points={`${targetX-6*Math.cos(angle-0.7)},${targetY-6*Math.sin(angle-0.7)} ${targetX},${targetY} ${targetX-6*Math.cos(angle+0.7)},${targetY-6*Math.sin(angle+0.7)}`} fill="#b180d7" opacity={0.6} />
+      <path d={d} fill="none" stroke="#737373" strokeWidth={1.5} strokeDasharray="5 4" opacity={0.6} />
+      <polygon points={`${targetX-6*Math.cos(angle-0.7)},${targetY-6*Math.sin(angle-0.7)} ${targetX},${targetY} ${targetX-6*Math.cos(angle+0.7)},${targetY-6*Math.sin(angle+0.7)}`} fill="#737373" opacity={0.6} />
     </g>
   );
 }

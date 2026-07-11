@@ -10,69 +10,31 @@ export function WorkspaceDialog() {
 
   async function handleOpen() {
     if (!path.trim()) return;
-    try {
-      await openProject(path.trim());
-      setOpen(false);
-    } catch (e: any) {
-      alert(e.message);
-    }
+    try { await openProject(path.trim()); setOpen(false); } catch (e: any) { alert(e.message); }
   }
 
   return (
     <>
-      <div className="h-10 bg-zinc-900 border-b border-zinc-800 flex items-center px-3 gap-2 shrink-0">
-        <button
-          onClick={() => setOpen(true)}
-          className="text-xs bg-violet-600 hover:bg-violet-500 px-3 py-1 rounded font-medium"
-        >
-          Open Project
-        </button>
-        <button
-          onClick={() => { useProjectStore.getState().saveProject(); }}
-          className="text-xs bg-zinc-700 hover:bg-zinc-600 px-3 py-1 rounded font-medium"
-          disabled={!workspacePath}
-        >
-          Save
-        </button>
-        {project && (
-          <span className="text-sm text-zinc-400 ml-2">
-            {project.name} <span className="text-zinc-600">({project.stack})</span>
-          </span>
-        )}
-        <button
-          onClick={() => { useProjectStore.getState().relayout(); }}
-          className="text-xs bg-zinc-700 hover:bg-zinc-600 px-3 py-1 rounded font-medium ml-auto"
-        >
-          Auto Layout
-        </button>
+      <div style={{ height: 40, background: '#111111', borderBottom: '1px solid #1f1f1f', display: 'flex', alignItems: 'center', padding: '0 12px', gap: 8, flexShrink: 0 }}>
+        <button onClick={() => setOpen(true)}
+          style={{ fontSize: 12, padding: '5px 12px', borderRadius: 4, fontWeight: 500, background: '#e5e5e5', color: '#0a0a0a' }}>Open Project</button>
+        <button onClick={() => useProjectStore.getState().saveProject()}
+          style={{ fontSize: 12, padding: '5px 12px', borderRadius: 4, fontWeight: 500, background: '#171717', color: '#a3a3a3', border: '1px solid #262626' }} disabled={!workspacePath}>Save</button>
+        {project && <span style={{ fontSize: 12, color: '#737373', marginLeft: 4 }}>{project.name} <span style={{ color: '#404040' }}>({project.stack})</span></span>}
+        <button onClick={() => useProjectStore.getState().relayout()}
+          style={{ fontSize: 12, padding: '5px 12px', borderRadius: 4, fontWeight: 500, background: '#171717', color: '#a3a3a3', border: '1px solid #262626', marginLeft: 'auto' }}>Auto Layout</button>
       </div>
-
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-6 w-[500px] shadow-xl">
-            <h2 className="text-lg font-bold mb-4">Open pxml Project</h2>
-            <input
-              type="text"
-              value={path}
-              onChange={e => setPath(e.target.value)}
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+          <div style={{ background: '#171717', border: '1px solid #262626', borderRadius: 8, padding: 24, width: 500, boxShadow: '0 24px 64px rgba(0,0,0,0.5)', animation: 'fadeIn 0.2s ease-out' }}>
+            <h2 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 600, color: '#e5e5e5' }}>Open pxml Project</h2>
+            <input type="text" value={path} onChange={e => setPath(e.target.value)}
               placeholder="/path/to/your/project (contains project.xml)"
-              className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-sm font-mono
-                         focus:outline-none focus:border-violet-500 mb-4"
-              onKeyDown={e => e.key === 'Enter' && handleOpen()}
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setOpen(false)}
-                className="px-4 py-1.5 text-sm bg-zinc-700 hover:bg-zinc-600 rounded"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleOpen}
-                className="px-4 py-1.5 text-sm bg-violet-600 hover:bg-violet-500 rounded font-medium"
-              >
-                Open
-              </button>
+              style={{ width: '100%', padding: '8px 12px', fontSize: 13, marginBottom: 16, background: '#0a0a0a', border: '1px solid #262626', borderRadius: 4, color: '#e5e5e5', fontFamily: 'monospace' }}
+              onKeyDown={e => e.key === 'Enter' && handleOpen()} />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button onClick={() => setOpen(false)} style={{ padding: '6px 16px', fontSize: 12, borderRadius: 4, background: '#171717', color: '#a3a3a3', border: '1px solid #262626' }}>Cancel</button>
+              <button onClick={handleOpen} style={{ padding: '6px 16px', fontSize: 12, borderRadius: 4, fontWeight: 600, background: '#e5e5e5', color: '#0a0a0a' }}>Open</button>
             </div>
           </div>
         </div>

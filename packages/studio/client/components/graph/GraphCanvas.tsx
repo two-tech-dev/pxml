@@ -4,6 +4,7 @@ import { pxmlEdgeTypes, getNodeTypes } from './nodes/index.js';
 import { useProjectStore, useOutputStore } from '../../stores/index.js';
 import { NodeEditDialog } from '../dialogs/NodeEditDialog.js';
 import type { NodeType } from '../../types/index.js';
+import { FolderOpen, Link, FileText } from 'lucide-react';
 
 export function GraphCanvas() {
   const nodes = useProjectStore(s => s.nodes);
@@ -15,15 +16,12 @@ export function GraphCanvas() {
   const onConnect = useProjectStore(s => s.onConnect);
   const setSelectedNode = useProjectStore(s => s.setSelectedNode);
   const addNode = useProjectStore(s => s.addNode);
-  const removeNode = useProjectStore(s => s.removeNode);
   const { screenToFlowPosition, fitView } = useReactFlow();
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
   const [editNodeId, setEditNodeId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (nodes.length > 0) {
-      setTimeout(() => fitView({ padding: 0.2, duration: 300 }), 100);
-    }
+    if (nodes.length > 0) setTimeout(() => fitView({ padding: 0.2, duration: 300 }), 100);
   }, [workspacePath]);
 
   function onNodeContextMenu(e: React.MouseEvent, node: any) {
@@ -44,84 +42,77 @@ export function GraphCanvas() {
     <div style={{ width: '100%', height: '100%' }} onDragOver={onDragOver} onDrop={onDrop}>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
-        .react-flow__background { background: #1e1e1e !important; }
-        .react-flow__controls { border-radius: 4px; overflow: hidden; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.97) translateY(3px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        .react-flow__background { background: #0a0a0a !important; }
+        .react-flow__controls {
+          border-radius: 6px; overflow: hidden;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important;
+          border: 1px solid #1f1f1f !important;
+        }
         .react-flow__controls-button {
-      background: #1e1e1e !important; border: 1px solid #3e3e42 !important;
-      fill: #cccccc !important; width: 28px !important; height: 28px !important;
-    }
-    .react-flow__minimap { border-radius: 4px; border: 1px solid #3e3e42 !important;
-      background: #1e1e1e !important; }
+          background: #111111 !important; border: none !important;
+          border-bottom: 1px solid #1f1f1f !important;
+          fill: #a3a3a3 !important; width: 28px !important; height: 28px !important;
+        }
+        .react-flow__controls-button:hover {
+          background: #171717 !important; fill: #e5e5e5 !important;
+        }
+        .react-flow__minimap {
+          border-radius: 6px; border: 1px solid #1f1f1f !important;
+          background: #0a0a0a !important; overflow: hidden;
+        }
+        .react-flow__attribution { display: none !important; }
       `}</style>
       <ReactFlow
         key={workspacePath || 'no-project'}
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
+        nodes={nodes} edges={edges}
+        onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
         onNodeClick={(_e, node) => setSelectedNode(node.id)}
         onNodeContextMenu={onNodeContextMenu}
         onEdgeContextMenu={(e, edge) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, nodeId: edge.id }); }}
         onPaneClick={() => { setSelectedNode(null); setContextMenu(null); }}
-        nodeTypes={getNodeTypes(nodes)}
-        edgeTypes={pxmlEdgeTypes}
+        nodeTypes={getNodeTypes(nodes)} edgeTypes={pxmlEdgeTypes}
         defaultEdgeOptions={{ type: 'dependency', selectable: true, focusable: true, deletable: true }}
-        connectionLineStyle={{ stroke: '#999999', strokeWidth: 1.5 }}
-        fitView
-        minZoom={0.1}
-        maxZoom={2}
-        edgesFocusable={true}
-        connectOnClick={false}
-        panOnDrag={[1, 2]}
-        proOptions={{ hideAttribution: true }}
-        style={{ background: '#1e1e1e' }}
+        connectionLineStyle={{ stroke: '#404040', strokeWidth: 1.5 }}
+        fitView minZoom={0.1} maxZoom={2} edgesFocusable={true}
+        connectOnClick={false} panOnDrag={[1, 2]} proOptions={{ hideAttribution: true }}
+        style={{ background: '#0a0a0a' }}
       >
         {nodes.length === 0 && (
-          <div style={{
-            position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
-            justifyContent: 'center', pointerEvents: 'none', zIndex: 1,
-          }}>
-            <div style={{ textAlign: 'center', color: '#999999', fontSize: 14 }}>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 1 }}>
+            <div style={{ textAlign: 'center', color: '#525252', fontSize: 14 }}>
               {!workspacePath ? (
                 <>
-                  <div style={{ fontSize: 40, marginBottom: 12 }}>📂</div>
-                  <div>Open a pxml project to get started</div>
-                  <div style={{ fontSize: 11, marginTop: 4 }}>Ctrl+O or click Open Folder</div>
+                  <div style={{ marginBottom: 16, opacity: 0.4, display: 'flex', justifyContent: 'center' }}><FolderOpen size={48} strokeWidth={1} /></div>
+                  <div style={{ color: '#737373', fontWeight: 500 }}>Open a pxml project to get started</div>
+                  <div style={{ fontSize: 11, marginTop: 6, color: '#404040' }}>Ctrl+O or click Open Folder</div>
                 </>
               ) : !project ? (
-                <>
-                  <div style={{ fontSize: 24, marginBottom: 8 }}>Loading...</div>
-                </>
+                <div style={{ fontSize: 24, marginBottom: 8 }}>Loading...</div>
               ) : nodes.length === 0 && edges.length > 0 ? (
                 <>
-                  <div style={{ fontSize: 24, marginBottom: 8 }}>🔗</div>
-                  <div>Edges only — drag a node from the sidebar</div>
+                  <div style={{ marginBottom: 12, opacity: 0.4, display: 'flex', justifyContent: 'center' }}><Link size={32} strokeWidth={1} /></div>
+                  <div style={{ color: '#737373' }}>Edges only {"\u2014"} drag a node from the sidebar</div>
                 </>
               ) : (
                 <>
-                  <div style={{ fontSize: 40, marginBottom: 12 }}>📄</div>
-                  <div>No nodes in project</div>
-                  <div style={{ fontSize: 11, marginTop: 4 }}>Drag node types from the left sidebar</div>
+                  <div style={{ marginBottom: 16, opacity: 0.4, display: 'flex', justifyContent: 'center' }}><FileText size={48} strokeWidth={1} /></div>
+                  <div style={{ color: '#737373', fontWeight: 500 }}>No nodes in project</div>
+                  <div style={{ fontSize: 11, marginTop: 6, color: '#404040' }}>Drag node types from the left sidebar</div>
                 </>
               )}
             </div>
           </div>
         )}
         <Controls style={{ background: 'transparent' }} />
-        <MiniMap style={{ background: '#1e1e1e' }} />
-        <Background color="#333" gap={20} size={1} />
+        <MiniMap style={{ background: '#0a0a0a' }} />
+        <Background color="#1f1f1f" gap={20} size={1} />
       </ReactFlow>
 
       {contextMenu && (
-        <NodeContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          nodeId={contextMenu.nodeId}
-          onClose={() => setContextMenu(null)}
-          onEdit={(id) => { setEditNodeId(id); setContextMenu(null); }}
-        />
+        <NodeContextMenu x={contextMenu.x} y={contextMenu.y} nodeId={contextMenu.nodeId}
+          onClose={() => setContextMenu(null)} onEdit={(id) => { setEditNodeId(id); setContextMenu(null); }} />
       )}
       {editNodeId && <NodeEditDialog nodeId={editNodeId} onClose={() => setEditNodeId(null)} />}
     </div>
@@ -136,8 +127,7 @@ function NodeContextMenu({ x, y, nodeId, onClose, onEdit }: {
   const workspacePath = useProjectStore(s => s.workspacePath);
 
   async function runTest() {
-    if (!workspacePath) return;
-    onClose();
+    if (!workspacePath) return; onClose();
     append({ type: 'info', message: `Running test for ${nodeId}...` });
     const res = await fetch('/api/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: workspacePath, nodeId }) });
     const d = await res.json();
@@ -145,53 +135,43 @@ function NodeContextMenu({ x, y, nodeId, onClose, onEdit }: {
   }
 
   async function runFix() {
-    if (!workspacePath) return;
-    onClose();
+    if (!workspacePath) return; onClose();
     append({ type: 'info', message: `Starting fix for ${nodeId}...` });
     await fetch('/api/fix', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: workspacePath, nodeId }) });
   }
 
   const items: { label: string; action: () => void; danger?: boolean; highlight?: boolean }[] = [
-    { label: '✏️ Edit Details', action: () => { onEdit(nodeId); }, highlight: true },
-    { label: '🧪 Run Test', action: runTest },
-    { label: '🔧 Self-Heal', action: runFix },
-    { label: '—', action: () => {} },
-    { label: '🗑 Delete Node', action: () => { removeNode(nodeId); onClose(); }, danger: true },
+    { label: 'Edit Details', action: () => onEdit(nodeId), highlight: true },
+    { label: 'Run Test', action: runTest },
+    { label: 'Self-Heal', action: runFix },
+    { label: '---', action: () => {} },
+    { label: 'Delete Node', action: () => { removeNode(nodeId); onClose(); }, danger: true },
   ];
 
   return (
     <>
-      <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.3)' }} onClick={onClose} onContextMenu={e => { e.preventDefault(); onClose(); }} />
+      <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.4)' }} onClick={onClose} onContextMenu={e => { e.preventDefault(); onClose(); }} />
       <div style={{
         position: 'fixed', left: x, top: y, zIndex: 101,
-        background: '#252526', border: '1px solid #3e3e42',
-        borderRadius: 6, boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+        background: '#171717', border: '1px solid #262626',
+        borderRadius: 6, boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
         minWidth: 180, padding: '4px 0', animation: 'fadeIn 0.12s ease-out',
       }}>
-        <div style={{
-          padding: '4px 12px 6px', fontSize: 11, color: '#999999',
-          borderBottom: '1px solid #3e3e42', marginBottom: 4, fontWeight: 600,
-        }}>
+        <div style={{ padding: '6px 12px 8px', fontSize: 11, color: '#525252', borderBottom: '1px solid #1f1f1f', marginBottom: 4, fontWeight: 600 }}>
           {nodeId}
         </div>
         {items.map((item, i) => (
-          item.label === '—' ? (
-            <div key={i} style={{ borderTop: '1px solid #3e3e42', margin: '4px 0' }} />
+          item.label === '---' ? (
+            <div key={i} style={{ borderTop: '1px solid #1f1f1f', margin: '4px 0' }} />
           ) : (
-            <button
-              key={i}
-              onClick={item.action}
-              style={{
-                display: 'block', width: '100%', textAlign: 'left', padding: '5px 12px',
-                fontSize: 12, fontWeight: item.highlight ? 600 : 400,
-                color: item.danger ? '#f44747' : item.highlight ? '#007acc' : '#cccccc',
-                transition: 'background 0.1s',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#2a2d2e')}
+            <button key={i} onClick={item.action} style={{
+              display: 'block', width: '100%', textAlign: 'left', padding: '5px 12px',
+              fontSize: 12, fontWeight: item.highlight ? 600 : 400,
+              color: item.danger ? '#ef4444' : item.highlight ? '#e5e5e5' : '#a3a3a3',
+            }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#1c1c1c')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-            >
-              {item.label}
-            </button>
+            >{item.label}</button>
           )
         ))}
       </div>
