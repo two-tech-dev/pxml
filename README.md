@@ -145,6 +145,8 @@ A ReactFlow-based graph editor for visual pxml project management. Features:
 cd packages/studio
 pnpm dev     # Vite + Express on :5173 / :3001
 ```
+<img width="1908" height="948" alt="image" src="https://github.com/user-attachments/assets/dbbfe10c-f9c6-4178-bfd4-907babd28336" />
+
 
 ## Multi-Stack Support
 
