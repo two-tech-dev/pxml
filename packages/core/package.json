@@ -1,6 +1,6 @@
 {
-  "name": "@pxml/core",
-  "version": "0.7.3",
+  "name": "@two-tech-dev/pxml-core",
+  "version": "0.8.0",
   "description": "pxml core library — parser, codegen, runner, and all compilation logic",
   "type": "module",
   "main": "dist/index.js",

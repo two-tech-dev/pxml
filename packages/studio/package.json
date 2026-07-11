@@ -11,7 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@pxml/core": "workspace:*",
+    "@two-tech-dev/pxml-core": "workspace:*",
     "@xyflow/react": "^12.6.0",
     "zustand": "^5.0.0",
     "dagre": "^0.8.5",

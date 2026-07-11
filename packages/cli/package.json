@@ -1,6 +1,6 @@
 {
   "name": "@two-tech-dev/pxml",
-  "version": "0.7.3",
+  "version": "0.8.0",
   "description": "XML DSL and compiler for AI-driven project building",
   "type": "module",
   "main": "dist/index.js",
@@ -13,7 +13,7 @@
     "cli": "tsx src/index.ts"
   },
   "dependencies": {
-    "@pxml/core": "workspace:*",
+    "@two-tech-dev/pxml-core": "workspace:*",
     "commander": "^12.1.0",
     "fast-xml-parser": "^4.4.0"
   },

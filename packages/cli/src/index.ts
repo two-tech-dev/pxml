@@ -6,8 +6,8 @@ import {
   getTestFilePath, FileWriter, DependencyGraph, runFixLoop, runBuildLoop,
   syncEditorSchema, addCatalogToVscodeSettings, createDefaultManifest,
   addPackageToManifest, installPackages
-} from '@pxml/core';
-import type { Node as PxmlNode } from '@pxml/core';
+} from '@two-tech-dev/pxml-core';
+import type { Node as PxmlNode } from '@two-tech-dev/pxml-core';
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -542,7 +542,7 @@ program
       }
     });
 
-    const { PxmlDiagnostics } = require('@pxml/core');
+    const { PxmlDiagnostics } = require('@two-tech-dev/pxml-core');
     console.log('Running diagnostics on logs...');
 
     for (const log of logs) {
