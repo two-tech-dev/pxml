@@ -4,3 +4,4 @@ dist
 .env
 package-lock.json
 packages/*/dist
+packages/cli/studio-static/

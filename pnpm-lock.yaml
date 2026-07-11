@@ -10,15 +10,33 @@ importers:
 
   packages/cli:
     dependencies:
-      '@pxml/core':
+      '@two-tech-dev/pxml-core':
         specifier: workspace:*
         version: link:../core
+      '@types/cors':
+        specifier: ^2.8.19
+        version: 2.8.19
+      '@types/express':
+        specifier: ^4.17.25
+        version: 4.17.25
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
       commander:
         specifier: ^12.1.0
         version: 12.1.0
+      cors:
+        specifier: ^2.8.6
+        version: 2.8.6
+      express:
+        specifier: ^4.22.2
+        version: 4.22.2
       fast-xml-parser:
         specifier: ^4.4.0
         version: 4.5.7
+      ws:
+        specifier: ^8.21.0
+        version: 8.21.0
     devDependencies:
       '@types/node':
         specifier: ^20.14.9
@@ -54,7 +72,7 @@ importers:
 
   packages/studio:
     dependencies:
-      '@pxml/core':
+      '@two-tech-dev/pxml-core':
         specifier: workspace:*
         version: link:../core
       '@xyflow/react':

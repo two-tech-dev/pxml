@@ -126,6 +126,13 @@ my-project/
 
 ## pxml Studio
 
+Launch the visual graph editor with a single command:
+
+```bash
+pxml studio                 # starts on http://localhost:3001
+pxml studio --port 8080     # custom port
+```
+
 A ReactFlow-based graph editor for visual pxml project management. Features:
 
 - **Graph canvas**: 6 node types (api-route, ui-component, db-model, middleware, config-file, setup-command)
@@ -141,12 +148,7 @@ A ReactFlow-based graph editor for visual pxml project management. Features:
 - **XML import/export**: bidirectional XML ↔ graph serialization
 - **Cursor/VS Code dark theme**
 
-```bash
-cd packages/studio
-pnpm dev     # Vite + Express on :5173 / :3001
-```
 <img width="1908" height="948" alt="image" src="https://github.com/user-attachments/assets/dbbfe10c-f9c6-4178-bfd4-907babd28336" />
-
 
 ## Multi-Stack Support
 

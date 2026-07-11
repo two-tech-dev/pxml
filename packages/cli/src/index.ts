@@ -968,4 +968,15 @@ function calculateEstimatedCost(model: string, stats: { inputTokens: number; out
   return cost;
 }
 
+program
+  .command('studio')
+  .description('Launch pxml Studio — visual graph editor for pxml projects')
+  .option('-p, --port <port>', 'Server port', '3001')
+  .option('-o, --open', 'Open browser automatically')
+  .action(async (opts: { port: string; open: boolean }) => {
+    const port = parseInt(opts.port, 10) || 3001;
+    const { startStudio } = await import('./studio.js') as any;
+    startStudio(port);
+  });
+
 program.parse(process.argv);
