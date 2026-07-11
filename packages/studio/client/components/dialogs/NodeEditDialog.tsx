@@ -61,7 +61,13 @@ const L: React.CSSProperties = { fontSize: 11, color: '#737373', marginBottom: 4
 
 function BasicForm({ d, update }: { d: NodeData; update: (id: string, p: Partial<NodeData>) => void }) {
   const allNodes = useProjectStore(s => s.nodes);
-  const extendsOptions = allNodes.filter(n => n.id !== d.id && !n.data.extends);
+  const packageNodes = useProjectStore(s => s.packageNodes);
+  const visibleIds = new Set(allNodes.map(n => n.data.id));
+  const merged = [
+    ...allNodes.map(n => n.data),
+    ...packageNodes.filter(pn => !visibleIds.has(pn.id)),
+  ];
+  const extendsOptions = merged.filter(n => n.id !== d.id && !n.extends);
   const existingFlows = [...new Set(allNodes.map(n => n.data.flow).filter(Boolean))];
 
   return (
@@ -80,7 +86,10 @@ function BasicForm({ d, update }: { d: NodeData; update: (id: string, p: Partial
       <div><div style={L}>Extends</div>
         <select value={d.extends || ''} onChange={e => update(d.id, { extends: e.target.value || undefined })} style={{...S, cursor:'pointer'}}>
           <option value="">(none)</option>
-          {extendsOptions.map(n => <option key={n.id} value={n.id}>{n.id}</option>)}
+          {extendsOptions.map(n => {
+            const isPkg = n.id.includes(':');
+            return <option key={n.id} value={n.id}>{n.id}{isPkg ? ' (pkg)' : ''}</option>;
+          })}
         </select>
       </div>
       <div><label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer' }}>
@@ -163,7 +172,14 @@ function TestsForm({ d, update }: { d: NodeData; update: (id: string, p: Partial
 
 function MetaForm({ d, update }: { d: NodeData; update: (id: string, p: Partial<NodeData>) => void }) {
   const allNodes = useProjectStore(s => s.nodes);
+  const packageNodes = useProjectStore(s => s.packageNodes);
   const depIds = d.meta.depends_on;
+  const visibleIds = new Set(allNodes.map(n => n.data.id));
+  const allCandidate = [
+    ...allNodes.map(n => n.data),
+    ...packageNodes.filter(pn => !visibleIds.has(pn.id)),
+  ];
+  const available = allCandidate.filter(n => n.id !== d.id && !depIds.includes(n.id));
   return (
     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
       <div style={{ gridColumn:'1/-1' }}><div style={L}>File Path</div>
@@ -179,7 +195,10 @@ function MetaForm({ d, update }: { d: NodeData; update: (id: string, p: Partial<
         <select value="" onChange={e => { if(e.target.value) update(d.id,{meta:{...d.meta,depends_on:[...depIds,e.target.value]}}); }}
           style={{ ...S, marginTop:6, cursor:'pointer' }}>
           <option value="">+ Add dependency...</option>
-          {allNodes.filter(n=>n.id!==d.id&&!depIds.includes(n.id)).map(n=>(<option key={n.id} value={n.id}>{n.id}</option>))}
+          {available.map(n => {
+            const isPkg = n.id.includes(':');
+            return <option key={n.id} value={n.id}>{n.id}{isPkg ? ' (pkg)' : ''}</option>;
+          })}
         </select>
       </div>
     </div>
