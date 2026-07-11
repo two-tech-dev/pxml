@@ -181,7 +181,7 @@ function ConsoleView() {
       const data = await res.json();
       if (data.output) setConsoleLines(prev => [...prev, { text: data.output.replace(/\n$/, ''), type: 'out' }]);
       if (data.error) setConsoleLines(prev => [...prev, { text: data.error, type: 'err' }]);
-      if (data.exitCode !== 0) {
+      if (data.exitCode !== undefined && data.exitCode !== 0) {
         setConsoleLines(prev => [...prev, { text: `Exit code: ${data.exitCode}`, type: 'err' }]);
       }
     } catch (e: any) {
