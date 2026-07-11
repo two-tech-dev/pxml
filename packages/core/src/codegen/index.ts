@@ -349,14 +349,14 @@ export class PxmlCodegen {
       console.log(`${colors.cyan(colors.bold('[SETUP-COMMAND]'))} Executing command: "${commandText}"`);
 
       const isCreateNextApp = commandText.includes('create-next-app');
-      const tempDir = path.join(process.cwd(), '../.pxml-temp-init');
+      const tempDir = path.join(cwdDir, '../.pxml-temp-init');
       const conflictItems = ['project.xml', 'pxml.xsd', 'pxml.json', 'flows', 'shared', 'packages', '.pxml', 'components', 'README.md', 'LICENSE', '.gitignore', 'bugs_history.xml', 'bugs.xsd', 'AGENTS.md', 'CLAUDE.md'];
       const movedItems: { src: string; dest: string }[] = [];
 
       if (isCreateNextApp) {
         if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
         for (const item of conflictItems) {
-          const itemPath = path.join(process.cwd(), item);
+          const itemPath = path.join(cwdDir, item);
           if (fs.existsSync(itemPath)) {
             const destPath = path.join(tempDir, item);
             if (fs.existsSync(destPath)) fs.rmSync(destPath, { recursive: true, force: true });
@@ -367,7 +367,7 @@ export class PxmlCodegen {
       }
 
       try {
-        execSync(commandText, { stdio: 'inherit', cwd: process.cwd() });
+        execSync(commandText, { stdio: 'inherit', cwd: cwdDir });
       } finally {
         if (isCreateNextApp) {
           for (const item of movedItems) {
