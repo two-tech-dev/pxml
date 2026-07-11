@@ -210,7 +210,7 @@ program
   .description('Compile XML nodes to implementation code')
   .option('--dry-run', 'Show execution plan without writing changes')
   .option('--no-autogen-tests', 'Disable automatic test case generation')
-  .option('--verify', 'Run AI self-verification on generated code (doubles tokens per node)')
+  .option('--no-verify', 'Disable AI self-verification on generated code (verification is ON by default)')
   .option('--no-validate', 'Disable per-file compiler/linter validation + auto-fix after codegen')
   .option('--no-build-check', 'Disable post-codegen full build verification + auto-fix (next build / go build / cargo build)')
   .option('--provider <provider>', 'AI Provider (anthropic, openai, or ollama)', 'anthropic')
@@ -248,7 +248,7 @@ program
       apiKey: apiKey,
       baseUrl: options.baseUrl,
       model: options.model,
-      skipVerification: !options.verify,
+      skipVerification: options.noVerify ?? false,
       skipValidation: !options.validate
     });
 

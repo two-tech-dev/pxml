@@ -1,9 +1,10 @@
 import { Node } from '../parser/schema.js';
-import { PxmlCodegen, IMPORT_RULES } from '../codegen/index.js';
+import { PxmlCodegen } from '../codegen/index.js';
 import { PxmlRunner, getTestFilePath } from '../runner/index.js';
 import { PxmlPatcher } from '../patcher/index.js';
 import { FileWriter } from '../writer/index.js';
 import { PxmlManifest } from '../manifest/index.js';
+import { fixLoopPrompt, FIX_LOOP_SYSTEM, getImportRules } from '@two-tech-dev/pxml-prompts';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -71,46 +72,21 @@ export async function runFixLoop(
     const currentTestCode = fs.existsSync(absTestFilePath) ? fs.readFileSync(absTestFilePath, 'utf-8') : '';
 
     // 2. Formulate minimal fix-prompt
-    const patchPrompt = `You are a software repair AI. The following code or tests for node '${node.id}' have issues.
-${testResult.output ? `Test Execution Failure Errors:\n${testResult.output}\n` : ''}
-${bugContext ? `Raw Bug Context / Error Logs:\n${bugContext}\n` : ''}
-Path: ${node.meta.path}
-Test Path: ${testFilePath}
-Failed Cases: ${failedCases.join(', ')}
-Node XML spec:
-- Input: ${JSON.stringify(node.input)}
-- Output: ${JSON.stringify(node.output)}
-- Constraints: ${JSON.stringify(node.constraints)}
-
-Current Code:
-\`\`\`typescript
-${currentCode}
-\`\`\`
-
-Current Test Code:
-\`\`\`typescript
-${currentTestCode}
-\`\`\`
-
-Analyze if the issue is in the implementation code or the test code (or both).
-CRITICAL: Do not break the code's core business logic or violate the XML constraints. If the test fails due to incorrect test assertions, mock setups, or environment mismatches, patch the test file (${testFilePath}) instead of the implementation file (${node.meta.path}).
-${IMPORT_RULES}
-Generate SEARCH/REPLACE blocks to patch the files. You MUST prefix each file's search/replace blocks with the header "FILE: [file_path]" where [file_path] is the relative path (either ${node.meta.path} or ${testFilePath}).
-
-Format:
-FILE: ${node.meta.path}
-<<<<<<< SEARCH
-[code to replace]
-=======
-[replacement code]
->>>>>>> REPLACE
-
-FILE: ${testFilePath}
-<<<<<<< SEARCH
-[code to replace]
-=======
-[replacement code]
->>>>>>> REPLACE`;
+    const importRules = getImportRules(stack);
+    const patchPrompt = fixLoopPrompt({
+      nodeId: node.id,
+      testOutput: testResult.output || '',
+      bugContext: bugContext || '',
+      implPath: node.meta.path,
+      testFilePath,
+      failedCases,
+      input: node.input,
+      output: node.output,
+      constraints: node.constraints,
+      currentCode,
+      currentTestCode,
+      importRules,
+    });
 
     // 3. Request diff/patch from AI (or use mock if provided)
     let patch = '';
@@ -118,7 +94,7 @@ FILE: ${testFilePath}
       patch = mockFixResponse;
     } else {
       try {
-        patch = await codegen.generateDirect(patchPrompt, "Generate only SEARCH/REPLACE patch block.");
+        patch = await codegen.generateDirect(patchPrompt, FIX_LOOP_SYSTEM);
       } catch (err: any) {
         console.error(`[FIX] AI call failed: ${err.message}. Escalating to user.`);
         return false;

@@ -1,9 +1,10 @@
 import { useProjectStore, useUIStore } from '../../stores/index.js';
 import type { NodeData } from '../../types/index.js';
+import { useRef, useState } from 'react';
 
-const TAB_KEYS = ['basic', 'fields', 'constraints', 'tests', 'meta'] as const;
+const TAB_KEYS = ['basic', 'fields', 'constraints', 'tests', 'images', 'meta'] as const;
 const TAB_LABELS: Record<string, string> = {
-  basic: 'Info', fields: 'Fields', constraints: 'Rules', tests: 'Tests', meta: 'Meta',
+  basic: 'Info', fields: 'Fields', constraints: 'Rules', tests: 'Tests', images: 'Images', meta: 'Meta',
 };
 
 export function PropertyPanel() {
@@ -62,6 +63,7 @@ export function PropertyPanel() {
         {tab === 'fields' && <FieldsTab data={d} update={updateNode} />}
         {tab === 'constraints' && <ConstraintsTab data={d} update={updateNode} />}
         {tab === 'tests' && <TestsTab data={d} update={updateNode} />}
+        {tab === 'images' && <ImagesTab data={d} update={updateNode} />}
         {tab === 'meta' && <MetaTab data={d} update={updateNode} />}
       </div>
     </div>
@@ -203,6 +205,82 @@ function TestsTab({ data: d, update }: { data: NodeData; update: (id: string, p:
       ))}
       <button onClick={() => update(d.id, { tests: [...d.tests, { name: '', given: {}, expect: {} }] })}
         style={{ fontSize: 11, color: '#007acc' }}>+ Add test</button>
+    </div>
+  );
+}
+
+function ImagesTab({ data: d, update }: { data: NodeData; update: (id: string, p: Partial<NodeData>) => void }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  const addImages = (files: FileList) => {
+    Array.from(files).forEach(file => {
+      if (!file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        update(d.id, { images: [...d.images, dataUrl] });
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeImage = (idx: number) => {
+    update(d.id, { images: d.images.filter((_, i) => i !== idx) });
+  };
+
+  return (
+    <div>
+      <div
+        onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={e => { e.preventDefault(); setDragOver(false); addImages(e.dataTransfer.files); }}
+        onClick={() => fileRef.current?.click()}
+        style={{
+          border: `2px dashed ${dragOver ? '#007acc' : '#3e3e42'}`,
+          borderRadius: 6, padding: 16, textAlign: 'center',
+          background: dragOver ? '#007acc15' : '#1e1e1e',
+          cursor: 'pointer', marginBottom: 12,
+          transition: 'all 0.15s',
+        }}
+      >
+        <span style={{ fontSize: 11, color: '#999999' }}>
+          Drop images here or click to upload
+        </span>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          multiple
+          style={{ display: 'none' }}
+          onChange={e => e.target.files && addImages(e.target.files)}
+        />
+      </div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        {d.images.map((dataUrl, i) => (
+          <div key={i} style={{
+            position: 'relative', width: 64, height: 64,
+            border: '1px solid #3e3e42', borderRadius: 4, overflow: 'hidden',
+          }}>
+            <img src={dataUrl} alt={`img-${i}`}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+            <button
+              onClick={e => { e.stopPropagation(); removeImage(i); }}
+              style={{
+                position: 'absolute', top: 0, right: 0,
+                background: '#f44747', color: '#ffffff', border: 'none',
+                borderRadius: '0 0 0 4px', fontSize: 10, padding: '1px 4px',
+                cursor: 'pointer', lineHeight: 1,
+              }}
+            >✕</button>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize: 10, color: '#666666', marginTop: 8 }}>
+        Images are embedded as base64 and sent to the AI for multimodal code generation.
+      </div>
     </div>
   );
 }

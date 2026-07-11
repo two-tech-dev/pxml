@@ -18,6 +18,7 @@ interface RawNode {
   output?: { field?: any[] | any };
   constraint?: any[] | any;
   test?: any[] | any;
+  images?: { image?: string | string[] };
 }
 
 interface RawImport {
@@ -144,6 +145,11 @@ export class PxmlParser {
           })
         : [];
 
+      const imageRaw = rn.images?.image;
+      const images = imageRaw
+        ? (Array.isArray(imageRaw) ? imageRaw : [imageRaw]).map(String)
+        : [];
+
       const autogenTestsNode = rn['@_autogen-tests'] !== undefined ? String(rn['@_autogen-tests']) === 'true' : undefined;
       const autogenTests = autogenTestsNode ?? autogenTestsProj;
 
@@ -160,7 +166,8 @@ export class PxmlParser {
         input,
         output,
         constraints,
-        tests
+        tests,
+        images
       });
     });
 
@@ -340,7 +347,8 @@ export class PxmlParser {
         input: [...parentNode.input, ...node.input],
         output: [...parentNode.output, ...node.output],
         constraints: mergedConstraints,
-        tests: mergedTests
+        tests: mergedTests,
+        images: [...parentNode.images, ...node.images]
       };
 
       resolvedMap.set(id, mergedNode);

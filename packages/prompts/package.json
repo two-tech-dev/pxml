@@ -1,0 +1,33 @@
+{
+  "name": "@two-tech-dev/pxml-prompts",
+  "version": "0.1.0",
+  "description": "Prompt templates for pxml AI code generation",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./stacks": "./dist/stacks.js",
+    "./rules": "./dist/rules.js",
+    "./codegen": "./dist/codegen.js",
+    "./testgen": "./dist/testgen.js",
+    "./fix": "./dist/fix.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "pnpm build"
+  },
+  "keywords": [
+    "pxml",
+    "prompts",
+    "ai",
+    "codegen"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

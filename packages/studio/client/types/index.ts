@@ -7,6 +7,7 @@ export interface NodeData {
   flow: string;
   extends?: string;
   autogenTests: boolean;
+  images: string[];
   meta: {
     path: string;
     depends_on: string[];

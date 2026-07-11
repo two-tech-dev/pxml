@@ -8,7 +8,7 @@ export function createDefaultNodeData(type: NodeType, id: string): NodeData {
   return {
     id, type, flow: 'default', autogenTests: true,
     meta: { path: '', depends_on: [] },
-    input: [], output: [], constraints: [], tests: [],
+    input: [], output: [], constraints: [], tests: [], images: [],
   };
 }
 
@@ -135,6 +135,9 @@ export function graphToXml(project: ProjectData, nodes: NodeData[], imports: Imp
     if (output) body += `\n${output}`;
     if (constraintsXml) body += `\n${constraintsXml}`;
     if (testsXml) body += `\n${testsXml}`;
+    if (n.images && n.images.length > 0) {
+      body += `\n    <images>\n${n.images.map(img => `      <image>${escapeXml(img)}</image>`).join('\n')}\n    </images>`;
+    }
     return `  <node ${attrs.join(' ')}>\n${body}\n  </node>`;
   }).join('\n\n');
   return `<project name="${project.name}" stack="${project.stack}" version="${project.version}" autogen-tests="${project.autogenTests}"

@@ -41,7 +41,7 @@ export const TestCaseSchema = z.object({
 
 export const NodeSchema = z.object({
   id: z.string(),
-  type: z.string(), // EXTENSION POINT: Expand backend/frontend stack types or generic custom node types
+  type: z.string(),
   flow: z.string(),
   extends: z.string().optional(),
   autogenTests: z.boolean().default(true),
@@ -49,7 +49,8 @@ export const NodeSchema = z.object({
   input: z.array(FieldSchema).default([]),
   output: z.array(FieldSchema).default([]),
   constraints: z.array(ConstraintSchema).default([]),
-  tests: z.array(TestCaseSchema).default([])
+  tests: z.array(TestCaseSchema).default([]),
+  images: z.array(z.string()).default([])
 });
 
 export const ProjectSchema = z.object({

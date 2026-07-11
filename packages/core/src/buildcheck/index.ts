@@ -4,6 +4,7 @@ import * as path from 'path';
 import { PxmlPatcher } from '../patcher/index.js';
 import { PxmlCodegen } from '../codegen/index.js';
 import { FileWriter } from '../writer/index.js';
+import { buildFixPrompt, BUILD_FIX_SYSTEM } from '@two-tech-dev/pxml-prompts';
 
 const colors = {
   red: (t: string) => `\x1b[31m${t}\x1b[0m`,
@@ -57,18 +58,10 @@ export async function runBuildLoop(
 
     console.log(`${colors.yellow(colors.bold('[BUILD]'))} Build failed (attempt ${attempt}/${maxRetries}), auto-fixing...`);
 
-    const prompt = `The project failed to build. Below are the build errors. Fix ALL errors by editing the affected files.
-${res.raw.slice(0, 6000)}
-
-Use SEARCH/REPLACE patch blocks. Prefix each file with "FILE: <relative_path>".
-- If an error is caused by a MISSING DEPENDENCY (a package that is not installed), reply with the exact word NODEP and nothing else.
-- Otherwise output only the patches.`;
+    const prompt = buildFixPrompt(res.raw);
 
     try {
-      const patch = await codegen.generateDirect(
-        prompt,
-        'Generate SEARCH/REPLACE patches for the build errors, or the word NODEP if a dependency is missing.'
-      );
+      const patch = await codegen.generateDirect(prompt, BUILD_FIX_SYSTEM);
 
       if (patch.trim().toUpperCase() === 'NODEP') {
         console.log(`${colors.yellow('[BUILD]')} Missing dependency detected, stopping build auto-fix.`);
