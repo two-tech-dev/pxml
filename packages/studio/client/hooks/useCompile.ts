@@ -11,85 +11,86 @@ export function useCompile(settings: ProviderSettings) {
   const clearNodeStatuses = useProjectStore(s => s.clearNodeStatuses);
 
   const handleWsMessage = useCallback((msg: any) => {
+    const ch = msg.channel || (msg.type?.startsWith('compile') ? 'compile' : msg.type?.startsWith('fix') ? 'fix' : msg.type?.startsWith('test') ? 'test' : 'general');
     switch (msg.type) {
       case 'compile:resume':
         setCompiling(true);
-        append({ type: 'warn', message: msg.message || 'Compilation in progress...' });
+        append({ type: 'warn', message: msg.message || 'Compilation in progress...', channel: 'compile' });
         break;
 
       case 'compile:start':
         setCompiling(true);
         clearNodeStatuses();
-        append({ type: 'info', message: msg.message || 'Compilation started' });
+        append({ type: 'info', message: msg.message || 'Compilation started', channel: 'compile' });
         break;
 
       case 'compile:validating':
-        append({ type: 'info', message: msg.message });
+        append({ type: 'info', message: msg.message, channel: 'compile' });
         break;
 
       case 'compile:validated':
-        append({ type: 'success', message: msg.message });
+        append({ type: 'success', message: msg.message, channel: 'compile' });
         break;
 
       case 'compile:node:start':
         if (msg.nodeId) setNodeStatus(msg.nodeId, 'compiling');
-        append({ type: 'info', message: `[${msg.nodeId}] ${msg.message}`, nodeId: msg.nodeId });
+        append({ type: 'info', message: `[${msg.nodeId}] ${msg.message}`, nodeId: msg.nodeId, channel: 'compile' });
         break;
 
       case 'compile:node:skip':
         if (msg.nodeId) setNodeStatus(msg.nodeId, 'done');
-        append({ type: 'warn', message: `[${msg.nodeId}] ${msg.message}`, nodeId: msg.nodeId });
+        append({ type: 'warn', message: `[${msg.nodeId}] ${msg.message}`, nodeId: msg.nodeId, channel: 'compile' });
         break;
 
       case 'compile:node:done':
         if (msg.nodeId) setNodeStatus(msg.nodeId, 'done');
-        append({ type: 'success', message: `[${msg.nodeId}] ${msg.message}`, nodeId: msg.nodeId });
+        append({ type: 'success', message: `[${msg.nodeId}] ${msg.message}`, nodeId: msg.nodeId, channel: 'compile' });
         break;
 
       case 'compile:node:error':
         if (msg.nodeId) setNodeStatus(msg.nodeId, 'error');
-        append({ type: 'error', message: `[${msg.nodeId}] ${msg.message}`, nodeId: msg.nodeId });
+        append({ type: 'error', message: `[${msg.nodeId}] ${msg.message}`, nodeId: msg.nodeId, channel: 'compile' });
         break;
 
       case 'compile:testgen:start':
-        append({ type: 'info', message: msg.message });
+        append({ type: 'info', message: msg.message, channel: 'test' });
         break;
 
       case 'compile:testgen:done':
-        append({ type: 'success', message: msg.message });
+        append({ type: 'success', message: msg.message, channel: 'test' });
         break;
 
       case 'compile:test:start':
-        append({ type: 'info', message: msg.message });
+        append({ type: 'info', message: msg.message, channel: 'test' });
         break;
 
       case 'compile:test:result':
         append({
           type: msg.passed ? 'success' : 'error',
           message: `[${msg.nodeId}] ${msg.message}`,
-          nodeId: msg.nodeId,
+          nodeId: msg.nodeId, channel: 'test',
         });
         break;
 
       case 'compile:fix:start':
-        append({ type: 'warn', message: `[${msg.nodeId}] ${msg.message}`, nodeId: msg.nodeId });
+        append({ type: 'warn', message: `[${msg.nodeId}] ${msg.message}`, nodeId: msg.nodeId, channel: 'fix' });
         break;
 
       case 'compile:fix:attempt':
-        append({ type: 'warn', message: `[${msg.nodeId}] Fix attempt ${msg.attempt}/3`, nodeId: msg.nodeId });
+        append({ type: 'warn', message: `[${msg.nodeId}] Fix attempt ${msg.attempt}/3`, nodeId: msg.nodeId, channel: 'fix' });
         break;
 
       case 'compile:fix:done':
         setNodeStatus(msg.nodeId, 'done');
-        append({ type: 'success', message: `[${msg.nodeId}] ${msg.message}`, nodeId: msg.nodeId });
+        append({ type: 'success', message: `[${msg.nodeId}] ${msg.message}`, nodeId: msg.nodeId, channel: 'fix' });
         break;
 
       case 'compile:build:check':
-        append({ type: 'info', message: msg.message });
+        append({ type: 'info', message: msg.message, channel: 'compile' });
         break;
 
       case 'compile:build:result':
-        append({ type: msg.passed ? 'success' : 'error', message: msg.message });
+        append({ type: msg.passed ? 'success' : 'error', message: msg.message, channel: 'compile' });
         break;
 
       case 'compile:done':
@@ -99,39 +100,35 @@ export function useCompile(settings: ProviderSettings) {
           outputTokens: msg.outputTokens || 0,
           cachedTokens: msg.cachedTokens || 0,
         });
-        append({ type: msg.error ? 'error' : 'success', message: msg.message || 'Compilation complete.' });
+        append({ type: msg.error ? 'error' : 'success', message: msg.message || 'Compilation complete.', channel: 'compile' });
         break;
 
       case 'compile:error':
         setCompiling(false);
-        append({ type: 'error', message: msg.message });
+        append({ type: 'error', message: msg.message, channel: 'compile' });
         break;
 
       case 'test:result':
-        append({
-          type: msg.passed ? 'success' : 'error',
-          message: `[${msg.nodeId}] ${msg.message}`,
-          nodeId: msg.nodeId,
-        });
+        append({ type: msg.passed ? 'success' : 'error', message: `[${msg.nodeId}] ${msg.message}`, nodeId: msg.nodeId, channel: 'test' });
         break;
 
       case 'fix:start':
         if (msg.nodeId) setNodeStatus(msg.nodeId, 'compiling');
-        append({ type: 'warn', message: `[${msg.nodeId}] ${msg.message}`, nodeId: msg.nodeId });
+        append({ type: 'warn', message: `[${msg.nodeId}] ${msg.message}`, nodeId: msg.nodeId, channel: 'fix' });
         break;
 
       case 'fix:attempt':
-        append({ type: 'warn', message: `[${msg.nodeId}] ${msg.message}`, nodeId: msg.nodeId });
+        append({ type: 'warn', message: `[${msg.nodeId}] ${msg.message}`, nodeId: msg.nodeId, channel: 'fix' });
         break;
 
       case 'fix:done':
         if (msg.nodeId) setNodeStatus(msg.nodeId, 'done');
-        append({ type: 'success', message: `[${msg.nodeId}] ${msg.message}`, nodeId: msg.nodeId });
+        append({ type: 'success', message: `[${msg.nodeId}] ${msg.message}`, nodeId: msg.nodeId, channel: 'fix' });
         break;
 
       case 'fix:error':
         if (msg.nodeId) setNodeStatus(msg.nodeId, 'error');
-        append({ type: 'error', message: `[${msg.nodeId || 'fix'}] ${msg.message}`, nodeId: msg.nodeId });
+        append({ type: 'error', message: `[${msg.nodeId || 'fix'}] ${msg.message}`, nodeId: msg.nodeId, channel: 'fix' });
         break;
     }
   }, [append, setCompiling, setCostSummary, setNodeStatus, clearNodeStatuses]);

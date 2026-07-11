@@ -476,24 +476,34 @@ export const useUIStore = create<UIStore>((set) => ({
   setPropertyPanelTab: (tab: string) => set({ propertyPanelTab: tab as any }),
 }));
 
+export type OutputChannel = 'compile' | 'test' | 'fix' | 'plugin' | 'general';
+
 interface OutputStore {
-  lines: { timestamp: number; type: string; message: string; nodeId?: string }[];
+  lines: { timestamp: number; type: string; message: string; nodeId?: string; channel?: OutputChannel }[];
+  activeChannel: OutputChannel;
   isCompiling: boolean;
   costSummary: { inputTokens: number; outputTokens: number; cachedTokens: number } | null;
-  append: (line: { type: string; message: string; nodeId?: string }) => void;
+  append: (line: { type: string; message: string; nodeId?: string; channel?: OutputChannel }) => void;
   clear: () => void;
+  clearChannel: (ch: OutputChannel) => void;
   setCompiling: (v: boolean) => void;
   setCostSummary: (s: { inputTokens: number; outputTokens: number; cachedTokens: number } | null) => void;
+  setActiveChannel: (ch: OutputChannel) => void;
 }
 
 export const useOutputStore = create<OutputStore>((set) => ({
   lines: [],
+  activeChannel: 'general' as OutputChannel,
   isCompiling: false,
   costSummary: null,
   append: (line) => set(s => ({
-    lines: [...s.lines, { ...line, timestamp: Date.now() }],
+    lines: [...s.lines, { ...line, timestamp: Date.now(), channel: line.channel || 'general' }],
   })),
   clear: () => set({ lines: [], costSummary: null }),
+  clearChannel: (ch) => set(s => ({
+    lines: s.lines.filter(l => l.channel !== ch),
+  })),
   setCompiling: (v) => set({ isCompiling: v }),
   setCostSummary: (s) => set({ costSummary: s }),
+  setActiveChannel: (ch) => set({ activeChannel: ch }),
 }));

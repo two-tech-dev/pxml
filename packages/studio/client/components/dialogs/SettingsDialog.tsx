@@ -88,6 +88,18 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
 
   if (!open) return null;
 
+  const modifiedSections = new Set<SettingSection>();
+  for (const [k, v] of Object.entries(settings)) {
+    if (v !== (DEFAULT_SETTINGS as any)[k]) {
+      if (['fontSize','fontFamily','autoSave'].includes(k)) modifiedSections.add('general');
+      else if (['accentColor','activityBarVisible','statusBarVisible','panelPosition'].includes(k)) modifiedSections.add('appearance');
+      else if (['tabSize','wordWrap','formatOnSave','smoothScroll'].includes(k)) modifiedSections.add('editor');
+      else if (['outputMaxLines','timestampsVisible'].includes(k)) modifiedSections.add('output');
+      else if (['provider','model','apiKey','baseUrl'].includes(k)) modifiedSections.add('provider');
+      else if (['snapToGrid','showEdgeLabels','nodeMinimap','minimap'].includes(k)) modifiedSections.add('graph');
+    }
+  }
+
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 200, display: 'flex',
@@ -138,7 +150,8 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
                 onMouseLeave={e => { if (activeSection !== s.key) e.currentTarget.style.background = 'transparent'; }}
               >
                 <s.Icon size={14} strokeWidth={1.5} style={{ width: 18, textAlign: 'center' }} />
-                {s.label}
+                <span style={{ flex: 1 }}>{s.label}</span>
+                {modifiedSections.has(s.key) && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#e5e5e5', flexShrink: 0 }} title="Modified" />}
               </button>
             ))}
           </div>
