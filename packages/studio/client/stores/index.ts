@@ -95,7 +95,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       workspacePath: path,
       isDirty: false,
       selectedNodeId: null,
+      nodeStatuses: {},
+      _history: [],
+      _historyIdx: -1,
     });
+    try { localStorage.setItem('pxml-workspace', path); } catch {}
   },
 
   saveProject: async () => {

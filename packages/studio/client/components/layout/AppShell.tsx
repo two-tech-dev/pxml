@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 import { useUIStore, useProjectStore } from '../../stores/index.js';
 import { Toolbar } from './Toolbar.js';
@@ -23,6 +23,17 @@ export function AppShell() {
   const toggleSidebar = useUIStore(s => s.toggleLeftPanel);
   const toggleRightPanel = useUIStore(s => s.toggleRightPanel);
   const toggleBottom = useUIStore(s => s.toggleBottomPanel);
+  const workspacePath = useProjectStore(s => s.workspacePath);
+  const openProject = useProjectStore(s => s.openProject);
+
+  // Restore last workspace on reload
+  useEffect(() => {
+    if (workspacePath) return;
+    try {
+      const saved = localStorage.getItem('pxml-workspace');
+      if (saved) { openProject(saved).catch(() => {}); }
+    } catch {}
+  }, []);
 
   const bottomResize = useRef<{ startY: number; startH: number } | null>(null);
   const leftResize = useRef<{ startX: number; startW: number } | null>(null);

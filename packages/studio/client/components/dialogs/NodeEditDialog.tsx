@@ -60,14 +60,29 @@ const S: React.CSSProperties = { width: '100%', padding: '5px 8px', fontSize: 12
 const L: React.CSSProperties = { fontSize: 11, color: '#737373', marginBottom: 4, fontWeight: 500 };
 
 function BasicForm({ d, update }: { d: NodeData; update: (id: string, p: Partial<NodeData>) => void }) {
+  const allNodes = useProjectStore(s => s.nodes);
+  const extendsOptions = allNodes.filter(n => n.id !== d.id && !n.data.extends);
+  const existingFlows = [...new Set(allNodes.map(n => n.data.flow).filter(Boolean))];
+
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
       <div><div style={L}>ID</div><input value={d.id} onChange={e => update(d.id, { id: e.target.value })} style={S} /></div>
       <div><div style={L}>Type</div><select value={d.type} onChange={e => update(d.id, { type: e.target.value as any })} style={{...S, cursor:'pointer'}}>
         {['api-route','ui-component','db-model','middleware','config-file','setup-command'].map(t => <option key={t} value={t}>{t}</option>)}
       </select></div>
-      <div><div style={L}>Flow</div><input value={d.flow} onChange={e => update(d.id, { flow: e.target.value })} style={S} /></div>
-      <div><div style={L}>Extends</div><input value={d.extends || ''} onChange={e => update(d.id, { extends: e.target.value || undefined })} placeholder="parent ID" style={S} /></div>
+      <div><div style={L}>Flow</div>
+        <select value={d.flow} onChange={e => update(d.id, { flow: e.target.value })} style={{...S, cursor:'pointer'}}>
+          <option value="default">default</option>
+          {existingFlows.filter(f => f !== d.flow && f !== 'default').map(f => <option key={f} value={f}>{f}</option>)}
+          {d.flow && !existingFlows.includes(d.flow) && <option value={d.flow}>{d.flow}</option>}
+        </select>
+      </div>
+      <div><div style={L}>Extends</div>
+        <select value={d.extends || ''} onChange={e => update(d.id, { extends: e.target.value || undefined })} style={{...S, cursor:'pointer'}}>
+          <option value="">(none)</option>
+          {extendsOptions.map(n => <option key={n.id} value={n.id}>{n.id}</option>)}
+        </select>
+      </div>
       <div><label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer' }}>
         <input type="checkbox" checked={d.autogenTests} onChange={e => update(d.id, { autogenTests: e.target.checked })} /> Autogen Tests
       </label></div>
