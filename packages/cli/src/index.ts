@@ -5,7 +5,7 @@ import {
   PxmlParser, validateProject, PxmlManifest, PxmlCache, PxmlCodegen, PxmlRunner,
   getTestFilePath, FileWriter, DependencyGraph, runFixLoop, runBuildLoop,
   syncEditorSchema, addCatalogToVscodeSettings, createDefaultManifest,
-  addPackageToManifest, installPackages
+  addPackageToManifest, installPackages, buildProjectContext
 } from '@two-tech-dev/pxml-core';
 import type { Node as PxmlNode } from '@two-tech-dev/pxml-core';
 import { execSync } from 'child_process';
@@ -300,8 +300,10 @@ program
 
       const MAX_FILE_CHARS = 2000;
       const dependents = node.meta.depends_on;
-      let projectContext = project.nodes.map(n => `Node: ${n.id}, Path: ${n.meta.path}`).join('\n');
-      projectContext += '\n\n--- Relevant dependency files ---\n';
+      let projectContext = `Project: ${project.name} (stack: ${project.stack})\n`;
+      projectContext += buildProjectContext(cwd);
+      projectContext += `\n--- Declared nodes ---\n${project.nodes.map(n => `Node: ${n.id}, Path: ${n.meta.path}`).join('\n')}\n`;
+      projectContext += '\n--- Relevant dependency files ---\n';
 
       const manifestData = manifest.get();
       for (const [mNodeId, mNode] of Object.entries(manifestData.nodes)) {

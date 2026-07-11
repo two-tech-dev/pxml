@@ -18,3 +18,4 @@ export { PxmlDiagnostics } from './diagnostics/index.js';
 export { validateNode } from './validator/index.js';
 export { syncEditorSchema, addCatalogToVscodeSettings } from './editor-schema/index.js';
 export { createDefaultManifest, addPackageToManifest, installPackages } from './install/index.js';
+export { buildProjectContext } from './context/index.js';

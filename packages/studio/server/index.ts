@@ -6,7 +6,7 @@ import {
   PxmlParser, validateProject, DependencyGraph, PxmlManifest, PxmlCache,
   PxmlCodegen, PxmlRunner, getTestFilePath, FileWriter,
   runFixLoop, runBuildLoop, syncEditorSchema, PxmlDiagnostics,
-  addPackageToManifest
+  addPackageToManifest, buildProjectContext
 } from '@two-tech-dev/pxml-core';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -267,8 +267,10 @@ async function runCompile(opts: {
 
     const nodeMap = new Map(project.nodes.map(n => [n.id, n]));
     const dependents = node.meta.depends_on;
-    let projectContext = project.nodes.map(n => `Node: ${n.id}, Path: ${n.meta.path}`).join('\n');
-    projectContext += '\n\n--- Relevant dependency files ---\n';
+    let projectContext = `Project: ${project.name} (stack: ${project.stack})\n`;
+    projectContext += buildProjectContext(cwd);
+    projectContext += `\n--- Declared nodes ---\n${project.nodes.map(n => `Node: ${n.id}, Path: ${n.meta.path}`).join('\n')}\n`;
+    projectContext += '\n--- Relevant dependency files ---\n';
 
     const manifestData = manifest.get();
     for (const [mNodeId, mNode] of Object.entries(manifestData.nodes)) {
