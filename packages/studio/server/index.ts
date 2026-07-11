@@ -6,7 +6,7 @@ import {
   PxmlParser, validateProject, DependencyGraph, PxmlManifest, PxmlCache,
   PxmlCodegen, PxmlRunner, getTestFilePath, FileWriter,
   runFixLoop, runBuildLoop, syncEditorSchema, PxmlDiagnostics,
-  addPackageToManifest, buildProjectContext
+  addPackageToManifest, buildProjectContext, createDefaultManifest,
 } from '@two-tech-dev/pxml-core';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -671,6 +671,75 @@ app.get('/api/layout/load', (req, res) => {
     if (!fs.existsSync(layoutPath)) return res.json({ positions: null });
     res.json({ positions: JSON.parse(fs.readFileSync(layoutPath, 'utf-8')) });
   } catch { res.json({ positions: null }); }
+});
+
+app.post('/api/project/init', (req, res) => {
+  try {
+    const { name, dir, stack = 'nextjs' } = req.body as any;
+    if (!name || !dir) return res.status(400).json({ error: 'name and dir required' });
+
+    const projectDir = path.join(dir, name);
+    if (fs.existsSync(projectDir)) {
+      return res.status(400).json({ error: `Directory already exists: ${projectDir}` });
+    }
+
+    fs.mkdirSync(path.join(projectDir, 'flows'), { recursive: true });
+    fs.mkdirSync(path.join(projectDir, 'packages', 'init-nextjs-project'), { recursive: true });
+    fs.mkdirSync(path.join(projectDir, '.pxml'), { recursive: true });
+
+    const projectXml = `<project name="${name}" stack="${stack}" version="0.1.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="pxml.xsd">
+  <import package="init-nextjs-project" from="packages/init-nextjs-project" as="nextjs-init" />
+
+  <node id="setup.nextjs" type="setup-command" flow="setup" extends="nextjs-init:base-setup" />
+
+  <node id="ui.home" type="ui-component" flow="navigation">
+    <meta>
+      <path>app/page.tsx</path>
+      <depends_on>setup.nextjs</depends_on>
+    </meta>
+    <constraint verify="static">File exports a default React component</constraint>
+    <constraint verify="llm-judge">Build a modern dark-themed landing page with a hero section and clean typography using Tailwind CSS.</constraint>
+  </node>
+</project>`;
+
+    const initNextjsXml = `<project name="init-nextjs-project" stack="nextjs" version="0.1.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="../../pxml.xsd">
+  <node id="base-setup" type="setup-command" flow="setup">
+    <meta>
+      <path>package.json</path>
+    </meta>
+    <constraint verify="static">Initialize Next.js app in the current directory non-interactively. Run: npx create-next-app@latest . --typescript --eslint --tailwind --app --no-src-dir --import-alias "@/*" --use-npm --yes</constraint>
+  </node>
+</project>`;
+
+    const bugsXml = `<bugs xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="bugs.xsd">
+</bugs>`;
+
+    const pxmlJson: any = { version: '0.1.0', packages: {} };
+
+    fs.writeFileSync(path.join(projectDir, 'project.xml'), projectXml, 'utf-8');
+    fs.writeFileSync(path.join(projectDir, 'packages', 'init-nextjs-project', 'project.xml'), initNextjsXml, 'utf-8');
+    fs.writeFileSync(path.join(projectDir, 'bugs_history.xml'), bugsXml, 'utf-8');
+    fs.writeFileSync(path.join(projectDir, 'pxml.json'), JSON.stringify(pxmlJson, null, 2), 'utf-8');
+    fs.writeFileSync(path.join(projectDir, '.pxml', 'layout.json'), '{}', 'utf-8');
+
+    // Copy XSD files from core package
+    try {
+      const coreDir = path.dirname(require.resolve('@two-tech-dev/pxml-core/package.json'));
+      const xsdSource = path.join(coreDir, 'pxml.xsd');
+      const bugsXsdSource = path.join(coreDir, 'bugs.xsd');
+      if (fs.existsSync(xsdSource)) fs.copyFileSync(xsdSource, path.join(projectDir, 'pxml.xsd'));
+      if (fs.existsSync(bugsXsdSource)) fs.copyFileSync(bugsXsdSource, path.join(projectDir, 'bugs.xsd'));
+    } catch {}
+
+    createDefaultManifest(projectDir);
+
+    res.json({ ok: true, path: projectDir });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 const PORT = process.env.PORT || 3001;

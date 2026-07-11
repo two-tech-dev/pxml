@@ -26,6 +26,7 @@ export function Toolbar() {
   const [showSettings, setShowSettings] = useState(false);
   const [showAppSettings, setShowAppSettings] = useState(false);
   const [showNewNode, setShowNewNode] = useState(false);
+  const [showNewProject, setShowNewProject] = useState(false);
   const [openPath, setOpenPath] = useState('');
 
   const isCompiling = useOutputStore(s => s.isCompiling);
@@ -103,6 +104,10 @@ export function Toolbar() {
           onMouseEnter={e => { e.currentTarget.style.background = '#d4d4d4'; }}
           onMouseLeave={e => { e.currentTarget.style.background = '#e5e5e5'; }}
         ><I Icon={Icons.folderOpen} /> Open Folder</button>
+        <button onClick={() => setShowNewProject(true)} style={B()}
+          onMouseEnter={e => { e.currentTarget.style.background = '#1c1c1c'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+        ><I Icon={Icons.newFile} /> New Project</button>
         <button onClick={saveProject} disabled={!workspacePath} style={B()}
           onMouseEnter={e => { e.currentTarget.style.background = '#1c1c1c'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
@@ -209,6 +214,7 @@ export function Toolbar() {
       <ProviderSettingsDialog open={showSettings} onClose={() => { setShowSettings(false); setSettings(getPersistedSettings()); }} />
       <SettingsDialog open={showAppSettings} onClose={() => setShowAppSettings(false)} />
       {showNewNode && <NewNodeDialog onClose={() => setShowNewNode(false)} />}
+      {showNewProject && <NewProjectDialog onClose={() => setShowNewProject(false)} />}
     </>
   );
 }
@@ -279,6 +285,93 @@ function NewNodeDialog({ onClose }: { onClose: () => void }) {
             onMouseEnter={e => { if (selectedType) e.currentTarget.style.background = '#d4d4d4'; }}
             onMouseLeave={e => { if (selectedType) e.currentTarget.style.background = '#e5e5e5'; }}
           >Create</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NewProjectDialog({ onClose }: { onClose: () => void }) {
+  const [name, setName] = useState('');
+  const [dir, setDir] = useState('');
+  const [browsePath, setBrowsePath] = useState('');
+  const [dirs, setDirs] = useState<{ name: string }[]>([]);
+  const [browseParent, setBrowseParent] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState('');
+  const openProject = useProjectStore(s => s.openProject);
+
+  useEffect(() => { fetch('/api/home').then(r => r.json()).then(d => { setBrowsePath(d.home || '/'); loadDir(d.home || '/'); }).catch(() => { loadDir('/'); }); }, []);
+
+  async function loadDir(p: string) { try { const r = await fetch('/api/browse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ p }) }); const d = await r.json(); setBrowsePath(d.path); setDirs(d.items || []); setBrowseParent(d.parent); } catch {} }
+
+  async function handleCreate() {
+    if (!name.trim()) { setError('Project name is required'); return; }
+    const targetDir = dir || browsePath;
+    if (!targetDir) { setError('Select a parent directory'); return; }
+    if (!targetDir.startsWith('/')) { setError('Enter a valid absolute path'); return; }
+    setCreating(true); setError('');
+    try {
+      const r = await fetch('/api/project/init', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name.trim(), dir: targetDir }) });
+      const d = await r.json();
+      if (!d.ok) { setError(d.error || 'Failed'); setCreating(false); return; }
+      const recent = JSON.parse(localStorage.getItem('pxml-recent') || '[]');
+      localStorage.setItem('pxml-recent', JSON.stringify([d.path, ...recent].slice(0, 10)));
+      await openProject(d.path);
+      onClose();
+    } catch (e: any) { setError(e.message); setCreating(false); }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+      <div style={{ background: '#171717', border: '1px solid #262626', borderRadius: 8, padding: 24, width: 520, boxShadow: '0 24px 64px rgba(0,0,0,0.5)', animation: 'fadeIn 0.2s ease-out' }}>
+        <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 600, color: '#e5e5e5' }}>New Project</h3>
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 11, color: '#737373', marginBottom: 4, fontWeight: 500 }}>Project Name</div>
+          <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="my-app"
+            style={{ width: '100%', padding: '7px 10px', fontSize: 13 }} />
+        </div>
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 11, color: '#737373', marginBottom: 4, fontWeight: 500 }}>Create in</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input type="text" value={dir} onChange={e => setDir(e.target.value)} placeholder={browsePath || 'Select a folder'}
+              style={{ flex: 1, padding: '7px 10px', fontSize: 13 }}
+              onKeyDown={e => e.key === 'Enter' && handleCreate()} />
+            <button onClick={handleCreate} disabled={creating || !name.trim()} style={{
+              padding: '7px 18px', fontSize: 13, fontWeight: 600, borderRadius: 4,
+              background: name.trim() ? '#e5e5e5' : '#262626', color: name.trim() ? '#0a0a0a' : '#525252',
+              border: '1px solid transparent',
+            }}>
+              {creating ? 'Creating...' : 'Create'}
+            </button>
+          </div>
+        </div>
+        <div style={{ border: '1px solid #1f1f1f', borderRadius: 6, overflow: 'hidden', maxHeight: 200, overflowY: 'auto', marginBottom: 8, background: '#0a0a0a' }}>
+          <div style={{ padding: '6px 12px', fontSize: 11, color: '#525252', borderBottom: '1px solid #1f1f1f', fontFamily: 'monospace' }}>{browsePath}</div>
+          {browseParent && (
+            <button onClick={() => loadDir(browseParent)}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '6px 12px', fontSize: 12, color: '#a3a3a3', textAlign: 'left', borderBottom: '1px solid #1f1f1f' }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#171717')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+            ><Icons.chevronRight size={12} /> ..</button>
+          )}
+          {dirs.map((d, i) => (
+            <button key={i} onClick={() => { setDir(browsePath + '/' + d.name); loadDir(browsePath + '/' + d.name); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '6px 12px', fontSize: 12, color: '#e5e5e5', textAlign: 'left', borderBottom: '1px solid #1f1f1f' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#171717'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >
+              <Icons.folder size={12} />
+              <span style={{ flex: 1 }}>{d.name}</span>
+            </button>
+          ))}
+        </div>
+        {error && <div style={{ fontSize: 12, color: '#ef4444', marginTop: 4 }}>{error}</div>}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+          <button onClick={onClose} style={{ padding: '6px 14px', fontSize: 12, borderRadius: 4, border: '1px solid #262626', color: '#a3a3a3' }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#1c1c1c'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+          >Cancel</button>
         </div>
       </div>
     </div>

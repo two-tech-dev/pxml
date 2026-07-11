@@ -3,7 +3,7 @@ import {
   Puzzle, Code2, Download, Undo2, Redo2, Settings, ChevronRight,
   FileText, Link, CheckCircle, XCircle, AlertTriangle, Circle,
   Users, PanelLeftOpen, PanelRightOpen, ChevronDown, Search,
-  X, Folder, ArrowRight, TestTube2, Plus,
+  X, Folder, ArrowRight, TestTube2, Plus, FilePlus2,
 } from 'lucide-react';
 
 export const Icons = {
@@ -37,4 +37,5 @@ export const Icons = {
   arrowRight: ArrowRight,
   testTube: TestTube2,
   plus: Plus,
+  newFile: FilePlus2,
 };
