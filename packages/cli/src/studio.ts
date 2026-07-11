@@ -380,6 +380,29 @@ export function startStudio(port: number = 3001) {
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  app.post('/api/console/exec', (req, res) => {
+    try {
+      const { command, cwd } = req.body as any;
+      if (!command) return res.status(400).json({ error: 'command required' });
+      const workDir = cwd || process.cwd();
+      broadcast({ type: 'console:start', command, cwd: workDir });
+      try {
+        const output = execSync(command, { cwd: workDir, stdio: 'pipe', timeout: 30000, maxBuffer: 10 * 1024 * 1024 });
+        const stdout = output.toString();
+        if (stdout) broadcast({ type: 'console:data', data: stdout });
+        broadcast({ type: 'console:done', exitCode: 0, command });
+        res.json({ ok: true, output: stdout });
+      } catch (e: any) {
+        const stderr = e.stderr?.toString() || '';
+        const stdout = e.stdout?.toString() || '';
+        if (stdout) broadcast({ type: 'console:data', data: stdout });
+        if (stderr) broadcast({ type: 'console:data', data: stderr });
+        broadcast({ type: 'console:done', exitCode: e.status || 1, command, error: true });
+        res.json({ ok: false, output: stdout, error: stderr || e.message, exitCode: e.status || 1 });
+      }
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   server.listen(port, () => {
     console.log(`\x1b[1m\x1b[36m⧩ pxml Studio\x1b[0m  →  \x1b[4mhttp://localhost:${port}\x1b[0m`);
   });

@@ -130,6 +130,20 @@ export function useCompile(settings: ProviderSettings) {
         if (msg.nodeId) setNodeStatus(msg.nodeId, 'error');
         append({ type: 'error', message: `[${msg.nodeId || 'fix'}] ${msg.message}`, nodeId: msg.nodeId, channel: 'fix' });
         break;
+
+      case 'console:start':
+        append({ type: 'info', message: `$ ${msg.command}`, channel: 'plugin' });
+        break;
+
+      case 'console:data':
+        append({ type: 'info', message: msg.data.replace(/\n$/, ''), channel: 'plugin' });
+        break;
+
+      case 'console:done':
+        if (msg.exitCode !== 0) {
+          append({ type: 'error', message: `Command exited with code ${msg.exitCode}`, channel: 'plugin' });
+        }
+        break;
     }
   }, [append, setCompiling, setCostSummary, setNodeStatus, clearNodeStatuses]);
 
