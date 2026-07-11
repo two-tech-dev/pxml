@@ -5,8 +5,8 @@
 | Package | Description | npm |
 |---|---|---|
 | `@two-tech-dev/pxml-core` | Parser, codegen, test runner, fix loop, schema validation | [`@two-tech-dev/pxml-core`](https://www.npmjs.com/package/@two-tech-dev/pxml-core) |
-| `@two-tech-dev/pxml` | CLI (`pxml init`, `pxml compile`, `pxml test`, `pxml fix`, `pxml validate`) | [`@two-tech-dev/pxml`](https://www.npmjs.com/package/@two-tech-dev/pxml) |
-| `@pxml/studio` | ReactFlow web editor with WebSocket streaming compile, undo/redo, plugin manager | Private |
+| `@two-tech-dev/pxml` | CLI (`pxml init`, `pxml compile`, `pxml test`, `pxml fix`, `pxml validate`, `pxml studio`) | [`@two-tech-dev/pxml`](https://www.npmjs.com/package/@two-tech-dev/pxml) |
+| `@two-tech-dev/pxml-studio` | ReactFlow web editor — visual graph builder, WebSocket compile, Settings, plugins | [`@two-tech-dev/pxml-studio`](https://www.npmjs.com/package/@two-tech-dev/pxml-studio) |
 
 Instead of writing free-form prompts, you specify your web application architecture in XML, manage modifications using a Manifest, and allow the AI to perform local self-healing repairs at minimal cost.
 
@@ -136,9 +136,11 @@ pxml studio --port 8080     # custom port
 A ReactFlow-based graph editor for visual pxml project management. Features:
 
 - **Graph canvas**: 6 node types (api-route, ui-component, db-model, middleware, config-file, setup-command)
+- **Node creation**: toolbar button (Ctrl+N) or right-click canvas → choose node type
 - **Drag-to-connect**: multi-handle edges (3 source + 3 target per node)
 - **Draw.io-style edges**: draggable waypoints, midpoint bend-points, delete button on hover
 - **Property panel**: 5 tabs (basic, fields, constraints, tests, meta)
+- **Settings dialog**: VSCode-style (Ctrl+,) — General, Appearance, Editor, Output, AI Provider, Graph
 - **Compile**: WebSocket streaming with real-time node status animation
 - **Test/Fix/Diagnose**: run tests, self-heal, analyze failures
 - **Plugin manager**: install packages from git URLs
@@ -146,7 +148,7 @@ A ReactFlow-based graph editor for visual pxml project management. Features:
 - **Layout persistence**: saved to `.pxml/layout.json`
 - **Resizable panels**: left sidebar, right properties, bottom output
 - **XML import/export**: bidirectional XML ↔ graph serialization
-- **Cursor/VS Code dark theme**
+- **Monochromatic dark theme**: Cursor/Grok-inspired neutral grays
 
 <img width="1908" height="948" alt="image" src="https://github.com/user-attachments/assets/de786d46-ce7c-4028-9a9c-97c13de8bb6a" />
 
