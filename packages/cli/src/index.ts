@@ -239,7 +239,7 @@ program
     const order = graph.getSortOrder();
 
     const manifest = new PxmlManifest(cwd, project.name, project.version);
-    const writer = new FileWriter(!!options.dryRun);
+    const writer = new FileWriter(!!options.dryRun, cwd);
 
     const apiKey = options.apiKey || (options.provider === 'openai' ? process.env.OPENAI_API_KEY : process.env.ANTHROPIC_API_KEY);
 

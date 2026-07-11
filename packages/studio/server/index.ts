@@ -216,7 +216,7 @@ async function runCompile(opts: {
   const order = graph.getSortOrder();
 
   const manifest = new PxmlManifest(cwd, project.name, project.version);
-  const writer = new FileWriter(dryRun);
+  const writer = new FileWriter(dryRun, cwd);
 
   const codegen = new PxmlCodegen({
     provider: provider as any,

@@ -9,16 +9,18 @@ export interface FileWriteOperation {
 
 export class FileWriter {
   private dryRun: boolean;
+  private cwd: string;
   private history: FileWriteOperation[] = [];
 
-  constructor(dryRun = false) {
+  constructor(dryRun = false, cwd = process.cwd()) {
     this.dryRun = dryRun;
+    this.cwd = cwd;
   }
 
   write(filePath: string, content: string) {
-    const absolutePath = path.resolve(filePath);
+    const absolutePath = path.isAbsolute(filePath) ? filePath : path.resolve(this.cwd, filePath);
     const originalContent = fs.existsSync(absolutePath) ? fs.readFileSync(absolutePath, 'utf-8') : null;
-    
+
     this.history.push({
       filePath: absolutePath,
       originalContent,
