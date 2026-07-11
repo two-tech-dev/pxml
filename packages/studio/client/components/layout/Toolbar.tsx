@@ -6,16 +6,16 @@ import { BugsHistoryDialog } from '../dialogs/BugsHistoryDialog.js';
 import { DiagnoseDialog } from '../dialogs/DiagnoseDialog.js';
 import { XmlPreview } from '../panels/XmlPreview.js';
 import { PluginManager } from '../dialogs/PluginManager.js';
+import { ProviderSettingsDialog, getPersistedSettings, type ProviderSettings } from '../dialogs/ProviderSettingsDialog.js';
 
 export function Toolbar() {
-  const [provider, setProvider] = useState('anthropic');
-  const [model, setModel] = useState('claude-3-5-sonnet');
-  const [baseUrl, setBaseUrl] = useState('http://localhost:11434');
+  const [settings, setSettings] = useState<ProviderSettings>(getPersistedSettings);
   const [showOpen, setShowOpen] = useState(false);
   const [showBugs, setShowBugs] = useState(false);
   const [showDiagnose, setShowDiagnose] = useState(false);
   const [showXml, setShowXml] = useState(false);
   const [showPlugins, setShowPlugins] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [openPath, setOpenPath] = useState('');
 
   const isCompiling = useOutputStore(s => s.isCompiling);
@@ -32,7 +32,7 @@ export function Toolbar() {
   const exportXml = useProjectStore(s => s.exportXml);
   const append = useOutputStore(s => s.append);
 
-  const { compile, handleWsMessage } = useCompile(provider, model);
+  const { compile, handleWsMessage } = useCompile(settings);
   useWebSocket(handleWsMessage);
 
   useEffect(() => {
@@ -58,8 +58,8 @@ export function Toolbar() {
   async function handleExport() { const p = await exportXml(); if(p) append({type:'success',message:`Exported to ${p}`}); }
 
   const cost = costSummary ? `$${((costSummary.inputTokens*0.000003)+(costSummary.outputTokens*0.000015)).toFixed(3)}` : null;
-  const B = (bg?:string, borderColor = '#3e3e42') => ({ padding:'5px 12px', fontSize:12, fontWeight:500, borderRadius:6, transition:'all 0.15s', background:bg || '#252526', color:'#cccccc', border:`1px solid ${borderColor}` }) as React.CSSProperties;
-  const BP = { ...B('#007acc', '#007acc'), color:'#fff', fontWeight:600 };
+  const B = (bg?:string) => ({ padding:'5px 12px', fontSize:12, fontWeight:500, borderRadius:6, transition:'all 0.15s', background:bg || '#252526', color:'#cccccc', border:'1px solid #3e3e42' }) as React.CSSProperties;
+  const BP = { ...B('#007acc'), color:'#fff', border:'1px solid #007acc', fontWeight:600 };
 
   return (
     <>
@@ -68,26 +68,11 @@ export function Toolbar() {
         <button onClick={()=>setShowOpen(true)} style={BP}>Open Folder</button>
         <button onClick={saveProject} disabled={!workspacePath} style={B()}>{isDirty?'Save ●':'Save'}</button>
         <div style={{width:1,height:22,background:'#3e3e42',margin:'0 4px'}} />
-        <select value={provider} onChange={e=>{setProvider(e.target.value); if(e.target.value!=='ollama') setBaseUrl('http://localhost:11434');}} style={{...B(),fontSize:11}}>
-          <option value="anthropic">Anthropic</option><option value="openai">OpenAI</option><option value="ollama">Ollama</option>
-        </select>
-        {provider==='ollama' ? (
-          <input value={baseUrl} onChange={e=>setBaseUrl(e.target.value)} placeholder="http://localhost:11434" title="Ollama base URL"
-            style={{width:160,padding:'4px 8px',fontSize:11,background:'#1e1e1e',border:'1px solid #3e3e42',borderRadius:4,color:'#cccccc',outline:'none'}} />
-        ) : null}
-        <input value={model} onChange={e=>setModel(e.target.value)} placeholder={provider==='anthropic'?'claude-3-5-sonnet':provider==='openai'?'gpt-4o':provider==='ollama'?'llama3.2:latest':'model'} title="Model name"
-          style={{width:160,padding:'4px 8px',fontSize:11,background:'#1e1e1e',border:'1px solid #3e3e42',borderRadius:4,color:'#cccccc',outline:'none'}}
-          list={`models-${provider}`} />
-        <datalist id="models-anthropic">
-          <option value="claude-3-5-sonnet" /><option value="claude-3-7-sonnet" /><option value="claude-3-opus" /><option value="claude-3-haiku" />
-        </datalist>
-        <datalist id="models-openai">
-          <option value="gpt-4o" /><option value="gpt-4-turbo" /><option value="gpt-4o-mini" /><option value="o3-mini" />
-        </datalist>
-        <datalist id="models-ollama">
-          <option value="llama3.2:latest" /><option value="codellama:latest" /><option value="mistral:latest" /><option value="deepseek-r1:latest" />
-        </datalist>
-        <button onClick={()=>compile(provider==='ollama' ? {baseUrl} : undefined)} disabled={!workspacePath||isCompiling} style={isCompiling?B():BP}>
+
+        <button onClick={() => { setShowSettings(true); setSettings(getPersistedSettings()); }} style={B()} title="Provider Settings">
+          ⚙ {settings.provider}/{settings.model}
+        </button>
+        <button onClick={()=>compile()} disabled={!workspacePath||isCompiling} style={isCompiling?B():BP}>
           {isCompiling ? <><span style={{width:12,height:12,border:'2px solid rgba(255,255,255,0.2)',borderTopColor:'#fff',borderRadius:'50%',display:'inline-block',animation:'spin 0.8s linear infinite',marginRight:4}} />Compiling</> : '▶ Compile'}
         </button>
         <button onClick={()=>runTest()} disabled={!workspacePath} style={B()}>🧪 Test</button>
@@ -113,6 +98,7 @@ export function Toolbar() {
       <DiagnoseDialog open={showDiagnose} onClose={()=>setShowDiagnose(false)} />
       <XmlPreview open={showXml} onClose={()=>setShowXml(false)} />
       <PluginManager open={showPlugins} onClose={()=>setShowPlugins(false)} />
+      <ProviderSettingsDialog open={showSettings} onClose={() => { setShowSettings(false); setSettings(getPersistedSettings()); }} />
     </>
   );
 }

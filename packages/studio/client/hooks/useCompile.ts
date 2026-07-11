@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
 import { useProjectStore, useOutputStore } from '../stores/index.js';
+import type { ProviderSettings } from '../components/dialogs/ProviderSettingsDialog.js';
 
-export function useCompile(provider: string, model: string) {
+export function useCompile(settings: ProviderSettings) {
   const workspacePath = useProjectStore(s => s.workspacePath);
   const append = useOutputStore(s => s.append);
   const setCompiling = useOutputStore(s => s.setCompiling);
@@ -93,7 +94,7 @@ export function useCompile(provider: string, model: string) {
           outputTokens: msg.outputTokens || 0,
           cachedTokens: msg.cachedTokens || 0,
         });
-        append({ type: 'success', message: msg.message || 'Compilation complete.' });
+        append({ type: msg.error ? 'error' : 'success', message: msg.message || 'Compilation complete.' });
         break;
 
       case 'compile:error':
@@ -136,8 +137,6 @@ export function useCompile(provider: string, model: string) {
     autogenTests?: boolean;
     validate?: boolean;
     buildCheck?: boolean;
-    apiKey?: string;
-    baseUrl?: string;
   }) => {
     if (!workspacePath) {
       append({ type: 'error', message: 'No project open.' });
@@ -145,7 +144,7 @@ export function useCompile(provider: string, model: string) {
     }
 
     setCompiling(true);
-    append({ type: 'info', message: `Starting compile: ${provider} / ${model}` });
+    append({ type: 'info', message: `Starting compile: ${settings.provider} / ${settings.model}` });
 
     try {
       await fetch('/api/compile', {
@@ -153,8 +152,10 @@ export function useCompile(provider: string, model: string) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           path: workspacePath,
-          provider,
-          model,
+          provider: settings.provider,
+          model: settings.model || undefined,
+          apiKey: settings.apiKey || undefined,
+          baseUrl: settings.baseUrl || undefined,
           ...options,
         }),
       });
@@ -162,7 +163,7 @@ export function useCompile(provider: string, model: string) {
       append({ type: 'error', message: `Request failed: ${e.message}` });
       setCompiling(false);
     }
-  }, [workspacePath, provider, model, append, setCompiling]);
+  }, [workspacePath, settings, append, setCompiling]);
 
   return { compile, handleWsMessage };
 }
