@@ -1,6 +1,6 @@
 {
   "name": "@two-tech-dev/pxml",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "XML DSL and compiler for AI-driven project building",
   "type": "module",
   "main": "dist/index.js",
@@ -8,7 +8,7 @@
     "pxml": "dist/index.js"
   },
   "scripts": {
-    "build": "tsc && [ -d ../studio/dist/client ] && cp -r ../studio/dist/client studio-static && echo '[ok] studio static copied' || true",
+    "build": "tsc && [ -d ../studio/dist/client ] && cp -r ../studio/dist/client/. studio-static/ && echo '[ok] studio static copied' || true",
     "test": "vitest run",
     "cli": "tsx src/index.ts"
   },
