@@ -361,27 +361,26 @@ program
     const TEST_CHUNK = 2;
     const combinedTestPaths: string[] = [];
     if (pendingTestNodes.length > 0) {
+      // Always generate per-node tests first
+      for (const pt of pendingTestNodes) {
+        const testPath = getTestFilePath(pt.node.meta.path, project.stack);
+        try {
+          console.log(`${colors.magenta(colors.bold('[TESTGEN]'))} Generating test for: ${pt.node.id}`);
+          await codegen.generateNodeTest(pt.node, path.resolve(cwd, testPath), pt.code, project.stack, writer);
+        } catch (e2: any) {
+          console.error(`[TESTGEN] ${colors.red(`Skipping test for ${pt.node.id}: ${e2.message}`)}`);
+        }
+      }
+      // Try combined test as bonus
       const allNodes = pendingTestNodes.map(pt => pt.node);
       for (let i = 0; i < allNodes.length; i += TEST_CHUNK) {
         const chunk = allNodes.slice(i, i + TEST_CHUNK);
         const chunkIdx = i / TEST_CHUNK;
-        console.log(`${colors.magenta(colors.bold('[TESTGEN]'))} Generating combined test file ${chunkIdx} (${chunk.length} node(s))...`);
         try {
+          console.log(`${colors.magenta(colors.bold('[TESTGEN]'))} Combined test ${chunkIdx} (${chunk.length} nodes)...`);
           const p = await codegen.generateCombinedTest(chunk, project.stack, writer, cwd, chunkIdx);
           combinedTestPaths.push(p);
-        } catch (err: any) {
-          console.warn(`[TESTGEN] Combined test chunk ${chunkIdx} failed (${err.message}), falling back to per-node...`);
-          for (const node of chunk) {
-            const testPath = getTestFilePath(node.meta.path, project.stack);
-            const code = pendingTestNodes.find(pt => pt.node.id === node.id)?.code || '';
-            try {
-              console.log(`${colors.magenta(colors.bold('[TESTGEN]'))} Generating test for: ${node.id}`);
-              await codegen.generateNodeTest(node, path.resolve(cwd, testPath), code, project.stack, writer);
-            } catch (e2: any) {
-              console.error(`[TESTGEN] ${colors.red(`Skipping test for ${node.id}: ${e2.message}`)}`);
-            }
-          }
-        }
+        } catch {}
       }
     }
 

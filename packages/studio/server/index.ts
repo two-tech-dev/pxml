@@ -376,21 +376,22 @@ async function doRunCompile(opts: {
 
   if (pendingTestNodes.length > 0) {
     broadcast({ type: 'compile:testgen:start', message: 'Generating tests...' });
-    const TEST_CHUNK = 2;
-    for (let i = 0; i < pendingTestNodes.length; i += TEST_CHUNK) {
-      const chunk = pendingTestNodes.slice(i, i + TEST_CHUNK).map((pt: any) => pt.node);
+
+    // Always generate per-node tests first — reliable
+    for (const pt of pendingTestNodes) {
       try {
-        await codegen.generateCombinedTest(chunk, project.stack, writer, cwd, i / TEST_CHUNK);
+        const tp = getTestFilePath(pt.node.meta.path, project.stack);
+        await codegen.generateNodeTest(pt.node, path.resolve(cwd, tp), pt.code, project.stack, writer);
       } catch (e: any) {
-        for (const pt of chunk) {
-          try {
-            const tp = getTestFilePath(pt.meta.path, project.stack);
-            const c = pendingTestNodes.find((p: any) => p.node.id === pt.id)?.code || '';
-            await codegen.generateNodeTest(pt, path.resolve(cwd, tp), c, project.stack, writer);
-          } catch {}
-        }
+        console.warn(`[TEST] Failed to generate test for ${pt.node.id}: ${e.message}`);
       }
     }
+
+    // Try combined test as bonus
+    try {
+      const allNodes = pendingTestNodes.map((pt: any) => pt.node);
+      await codegen.generateCombinedTest(allNodes, project.stack, writer, cwd);
+    } catch {}
     broadcast({ type: 'compile:testgen:done', message: 'Tests generated.' });
   }
 
