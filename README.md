@@ -148,7 +148,8 @@ A ReactFlow-based graph editor for visual pxml project management. Features:
 - **XML import/export**: bidirectional XML ↔ graph serialization
 - **Cursor/VS Code dark theme**
 
-<img width="1908" height="948" alt="image" src="https://github.com/user-attachments/assets/dbbfe10c-f9c6-4178-bfd4-907babd28336" />
+<img width="1908" height="948" alt="image" src="https://github.com/user-attachments/assets/de786d46-ce7c-4028-9a9c-97c13de8bb6a" />
+
 
 ## Multi-Stack Support
 
