@@ -12,6 +12,11 @@ export function useCompile(settings: ProviderSettings) {
 
   const handleWsMessage = useCallback((msg: any) => {
     switch (msg.type) {
+      case 'compile:resume':
+        setCompiling(true);
+        append({ type: 'warn', message: msg.message || 'Compilation in progress...' });
+        break;
+
       case 'compile:start':
         setCompiling(true);
         clearNodeStatuses();

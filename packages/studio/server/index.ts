@@ -50,10 +50,21 @@ if (fs.existsSync(CLIENT_DIST)) {
 }
 
 const clients = new Set<WebSocket>();
+let messageHistory: string[] = [];
+const MAX_HISTORY = 200;
+let compileRunning = false;
 
 wss.on('connection', (ws) => {
   clients.add(ws);
   console.log('[WS] Client connected, total:', clients.size);
+
+  if (compileRunning) {
+    ws.send(JSON.stringify({ type: 'compile:resume', message: 'Compilation in progress...' }));
+  }
+  for (const item of messageHistory) {
+    try { ws.send(item); } catch {}
+  }
+
   ws.on('close', () => {
     clients.delete(ws);
     console.log('[WS] Client disconnected, total:', clients.size);
@@ -62,6 +73,10 @@ wss.on('connection', (ws) => {
 
 function broadcast(data: any) {
   const msg = JSON.stringify(data);
+  if (msg.length < 5000) {
+    messageHistory.push(msg);
+    if (messageHistory.length > MAX_HISTORY) messageHistory.shift();
+  }
   console.log('[WS] Broadcast:', data.type, '→', clients.size, 'client(s)');
   for (const ws of clients) {
     try { ws.send(msg); } catch {}
@@ -196,6 +211,30 @@ async function runCompile(opts: {
   buildCheck: boolean;
 }) {
   const { wsPath, provider, model, apiKey, baseUrl, dryRun, verify, autogenTests, validate, buildCheck } = opts;
+  compileRunning = true;
+  messageHistory = [];
+  try {
+    await doRunCompile({ wsPath, provider, model, apiKey, baseUrl, dryRun, verify, autogenTests, validate, buildCheck });
+  } catch (e: any) {
+    broadcast({ type: 'compile:error', message: `Unexpected error: ${e.message}` });
+    broadcast({ type: 'compile:done', message: `Compilation aborted.`, error: true });
+    compileRunning = false;
+  }
+}
+
+async function doRunCompile(opts: {
+  wsPath: string;
+  provider: string;
+  model: string;
+  apiKey?: string;
+  baseUrl?: string;
+  dryRun: boolean;
+  verify: boolean;
+  autogenTests: boolean;
+  validate: boolean;
+  buildCheck: boolean;
+}) {
+  const { wsPath, provider, model, apiKey, baseUrl, dryRun, verify, autogenTests, validate, buildCheck } = opts;
   const cwd = wsPath;
   const projectXml = path.join(cwd, 'project.xml');
 
@@ -206,6 +245,8 @@ async function runCompile(opts: {
   const project = parser.parse(projectXml);
   try { validateProject(project); } catch (e: any) {
     broadcast({ type: 'compile:error', message: `Validation error: ${e.message}` });
+    broadcast({ type: 'compile:done', message: 'Validation failed.', error: true });
+    compileRunning = false;
     return;
   }
   broadcast({ type: 'compile:validated', message: `Validation OK. ${project.nodes.length} nodes.` });
@@ -328,6 +369,7 @@ async function runCompile(opts: {
       broadcast({ type: 'compile:node:error', nodeId, message: `Failed: ${err.message}` });
       broadcast({ type: 'compile:done', message: `Compilation aborted: ${err.message}`, error: true });
       writer.rollback();
+      compileRunning = false;
       return;
     }
   }
@@ -402,6 +444,7 @@ async function runCompile(opts: {
     outputTokens: stats.outputTokens,
     cachedTokens: stats.cachedTokens,
   });
+  compileRunning = false;
 }
 
 app.post('/api/test', (req, res) => {
