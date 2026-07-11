@@ -46,7 +46,15 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / 3.5);
 }
 const TOKEN_WARN = 6000;
-const TOKEN_MAX = 14000;
+
+// ── Retry helper: skip 4xx (permanent), retry 5xx + network ──────
+function isRetryable(err: any): boolean {
+  const msg = String(err.message || err);
+  if (msg.includes('status: 40') || msg.includes('status: 41') ||
+      msg.includes('status: 42') || msg.includes('status: 43')) return false;
+  if (msg.includes('status: 4') && !msg.includes('status: 429')) return false;
+  return true;
+}
 
 function buildPromptSummary(label: string, prompt: string, systemPrompt: string) {
   const pt = estimateTokens(prompt);
@@ -122,8 +130,8 @@ export class AnthropicProvider implements AIProvider {
         }
         return response.content[0].type === 'text' ? response.content[0].text : '';
       } catch (err: any) {
-        if (attempt >= this.maxRetries) {
-          throw new Error(`Anthropic API request failed after ${this.maxRetries} attempts: ${err.message}`);
+        if (!isRetryable(err) || attempt >= this.maxRetries) {
+          throw new Error(`Anthropic API request failed after ${attempt} attempt(s): ${err.message}`);
         }
         console.warn(`[ANTHROPIC WARN] Attempt ${attempt} failed: ${err.message}. Retrying...`);
         await new Promise(res => setTimeout(res, 2000 * attempt));
@@ -192,8 +200,8 @@ export class OpenAICompatibleProvider implements AIProvider {
         return data.choices?.[0]?.message?.content || '';
       } catch (err: any) {
         clearTimeout(timeoutId);
-        if (attempt >= maxRetries) {
-          throw new Error(`OpenAI API request failed after ${maxRetries} attempts: ${err.message}`);
+        if (!isRetryable(err) || attempt >= maxRetries) {
+          throw new Error(`OpenAI API request failed after ${attempt} attempt(s): ${err.message}`);
         }
         console.warn(`[API WARN] Attempt ${attempt} failed: ${err.message}. Retrying...`);
         await new Promise(res => setTimeout(res, 2000 * attempt));
@@ -252,8 +260,8 @@ export class OllamaProvider implements AIProvider {
         return data.response || '';
       } catch (err: any) {
         clearTimeout(timeoutId);
-        if (attempt >= maxRetries) {
-          throw new Error(`Ollama API request failed after ${maxRetries} attempts: ${err.message}`);
+        if (!isRetryable(err) || attempt >= maxRetries) {
+          throw new Error(`Ollama API request failed after ${attempt} attempt(s): ${err.message}`);
         }
         console.warn(`[OLLAMA WARN] Attempt ${attempt} failed: ${err.message}. Retrying...`);
         await new Promise(res => setTimeout(res, 2000 * attempt));
