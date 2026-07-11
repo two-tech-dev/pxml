@@ -367,7 +367,12 @@ export class PxmlCodegen {
       }
 
       try {
-        execSync(commandText, { stdio: 'inherit', cwd: cwdDir });
+        // Skip create-next-app if project already initialized
+        if (isCreateNextApp && fs.existsSync(path.join(cwdDir, 'package.json'))) {
+          console.log(`${colors.yellow('[SETUP-CMD]')} Project already initialized (package.json exists), skipping create-next-app.`);
+        } else {
+          execSync(commandText, { stdio: 'inherit', cwd: cwdDir });
+        }
       } finally {
         if (isCreateNextApp) {
           for (const item of movedItems) {
