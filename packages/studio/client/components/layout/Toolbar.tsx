@@ -75,6 +75,11 @@ export function Toolbar() {
     const d = await r.json(); append({type:d.fixed?'success':'error',message:d.message});
   }
   async function handleExport() { const p = await exportXml(); if(p) append({type:'success',message:`Exported to ${p}`}); }
+  async function runAutoTest() {
+    if(!workspacePath) return;
+    append({type:'info',message:'Starting auto-test...',channel:'test'});
+    await fetch('/api/auto-test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:workspacePath})});
+  }
 
   const cost = costSummary ? `$${((costSummary.inputTokens*0.000003)+(costSummary.outputTokens*0.000015)).toFixed(3)}` : null;
 
@@ -143,6 +148,10 @@ export function Toolbar() {
           onMouseEnter={e => { e.currentTarget.style.background = '#1c1c1c'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
         ><I Icon={Icons.flask} /> Test</button>
+        <button onClick={runAutoTest} disabled={!workspacePath} style={B()}
+          onMouseEnter={e => { e.currentTarget.style.background = '#1c1c1c'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+        ><I Icon={Icons.flask} /><I Icon={Icons.play} size={10} /> Auto Test</button>
         <button onClick={resetLayout} style={B()}
           onMouseEnter={e => { e.currentTarget.style.background = '#1c1c1c'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
@@ -294,6 +303,7 @@ function NewNodeDialog({ onClose }: { onClose: () => void }) {
 function NewProjectDialog({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState('');
   const [dir, setDir] = useState('');
+  const [stack, setStack] = useState('nextjs');
   const [browsePath, setBrowsePath] = useState('');
   const [dirs, setDirs] = useState<{ name: string }[]>([]);
   const [browseParent, setBrowseParent] = useState<string | null>(null);
@@ -312,7 +322,7 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
     if (!targetDir.startsWith('/')) { setError('Enter a valid absolute path'); return; }
     setCreating(true); setError('');
     try {
-      const r = await fetch('/api/project/init', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name.trim(), dir: targetDir }) });
+      const r = await fetch('/api/project/init', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name.trim(), dir: targetDir, stack }) });
       const d = await r.json();
       if (!d.ok) { setError(d.error || 'Failed'); setCreating(false); return; }
       const recent = JSON.parse(localStorage.getItem('pxml-recent') || '[]');
@@ -330,6 +340,15 @@ function NewProjectDialog({ onClose }: { onClose: () => void }) {
           <div style={{ fontSize: 11, color: '#737373', marginBottom: 4, fontWeight: 500 }}>Project Name</div>
           <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="my-app"
             style={{ width: '100%', padding: '7px 10px', fontSize: 13 }} />
+        </div>
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 11, color: '#737373', marginBottom: 4, fontWeight: 500 }}>Stack</div>
+          <select value={stack} onChange={e => setStack(e.target.value)} style={{ width: '100%', padding: '7px 10px', fontSize: 13, cursor: 'pointer' }}>
+            <option value="nextjs">Next.js (Web App)</option>
+            <option value="python">Python (Flask/FastAPI)</option>
+            <option value="go">Go (net/http)</option>
+            <option value="rust">Rust (Axum/Actix)</option>
+          </select>
         </div>
         <div style={{ marginBottom: 12 }}>
           <div style={{ fontSize: 11, color: '#737373', marginBottom: 4, fontWeight: 500 }}>Create in</div>

@@ -403,6 +403,38 @@ export function startStudio(port: number = 3001) {
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  app.post('/api/auto-test', async (req, res) => {
+    const { path: wp } = req.body as any;
+    res.json({ accepted: true });
+    try {
+      broadcast({ type: 'autotest:start', message: 'Auto-testing project...' });
+      const project = new PxmlParser().parse(path.join(wp, 'project.xml'));
+      const testableNodes = (project.nodes as any[]).filter((n: any) => n.type !== 'config-file');
+      broadcast({ type: 'autotest:progress', message: `Testing ${testableNodes.length} nodes (stack: ${project.stack || 'nextjs'})...` });
+      let passed = 0, failed = 0;
+      for (const node of testableNodes) {
+        broadcast({ type: 'autotest:node:start', nodeId: node.id, message: `Testing ${node.id}...` });
+        const testPath = path.join(wp, '.pxml', 'tests', `${node.id}.test.ts`);
+        const pyPath = path.join(wp, '.pxml', 'tests', `${node.id}.test.py`);
+        const goPath = path.join(wp, '.pxml', 'tests', `${node.id}_test.go`);
+        let found = false;
+        for (const tp of [testPath, pyPath, goPath]) {
+          if (fs.existsSync(tp)) { found = true;
+            try {
+              const stack = project.stack || 'nextjs';
+              const cmd = stack === 'python' ? `python -m pytest ${tp} -v` : stack === 'go' ? `go test -run Test ${path.dirname(tp)}` : `npx vitest run ${tp}`;
+              execSync(cmd, { cwd: wp, stdio: 'pipe', timeout: 60000 });
+              passed++; broadcast({ type: 'autotest:node:done', nodeId: node.id, passed: true, message: `Tests passed` });
+            } catch { failed++; broadcast({ type: 'autotest:node:error', nodeId: node.id, message: 'Tests failed' }); }
+            break;
+          }
+        }
+        if (!found) { failed++; broadcast({ type: 'autotest:node:error', nodeId: node.id, message: 'No test file found' }); }
+      }
+      broadcast({ type: 'autotest:done', passed, failed, total: testableNodes.length, message: `${passed}/${passed + failed} passed` });
+    } catch (e: any) { broadcast({ type: 'autotest:error', message: e.message }); }
+  });
+
   server.listen(port, () => {
     console.log(`\x1b[1m\x1b[36m⧩ pxml Studio\x1b[0m  →  \x1b[4mhttp://localhost:${port}\x1b[0m`);
   });

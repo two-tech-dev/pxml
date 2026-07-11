@@ -131,6 +131,28 @@ export function useCompile(settings: ProviderSettings) {
         append({ type: 'error', message: `[${msg.nodeId || 'fix'}] ${msg.message}`, nodeId: msg.nodeId, channel: 'fix' });
         break;
 
+      case 'autotest:start':
+        append({ type: 'info', message: msg.message, channel: 'test' });
+        break;
+      case 'autotest:progress':
+        append({ type: 'info', message: msg.message, channel: 'test' });
+        break;
+      case 'autotest:node:start':
+        append({ type: 'info', message: `[${msg.nodeId}] ${msg.message}`, nodeId: msg.nodeId, channel: 'test' });
+        break;
+      case 'autotest:node:done':
+        append({ type: 'success', message: `[${msg.nodeId}] ${msg.message}`, nodeId: msg.nodeId, channel: 'test' });
+        break;
+      case 'autotest:node:error':
+        append({ type: 'error', message: `[${msg.nodeId}] ${msg.message}`, nodeId: msg.nodeId, channel: 'test' });
+        break;
+      case 'autotest:done':
+        append({ type: msg.passed === msg.total ? 'success' : 'warn', message: `Auto-test complete: ${msg.message}`, channel: 'test' });
+        break;
+      case 'autotest:error':
+        append({ type: 'error', message: `Auto-test error: ${msg.message}`, channel: 'test' });
+        break;
+
       case 'console:start':
         append({ type: 'info', message: `$ ${msg.command}`, channel: 'plugin' });
         break;

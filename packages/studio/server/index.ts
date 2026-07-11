@@ -747,10 +747,6 @@ app.post('/api/console/exec', (req, res) => {
     const { command, cwd } = req.body as any;
     if (!command) return res.status(400).json({ error: 'command required' });
     const workDir = cwd || process.cwd();
-    const activeWs: any[] = [];
-    for (const ws of clients) {
-      if (ws.readyState === 1) activeWs.push(ws);
-    }
     broadcast({ type: 'console:start', command, cwd: workDir });
     try {
       const output = execSync(command, { cwd: workDir, stdio: 'pipe', timeout: 30000, maxBuffer: 10 * 1024 * 1024 });
@@ -767,6 +763,61 @@ app.post('/api/console/exec', (req, res) => {
       res.json({ ok: false, output: stdout, error: stderr || e.message, exitCode: e.status || 1 });
     }
   } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/auto-test', async (req, res) => {
+  const { path: wp } = req.body as any;
+  res.json({ accepted: true });
+
+  try {
+    broadcast({ type: 'autotest:start', message: 'Auto-testing project...' });
+    const project = new PxmlParser().parse(path.join(wp, 'project.xml'));
+    broadcast({ type: 'autotest:progress', message: `Stack: ${project.stack || 'nextjs'}` });
+
+    const testableNodes = (project.nodes as any[]).filter((n: any) =>
+      n.type !== 'config-file');
+    broadcast({ type: 'autotest:progress', message: `Testing ${testableNodes.length} nodes...` });
+
+    let passed = 0, failed = 0;
+
+    for (const node of testableNodes) {
+      broadcast({ type: 'autotest:node:start', nodeId: node.id, message: `Testing ${node.id}...` });
+
+      const testPath = path.join(wp, '.pxml', 'tests', `${node.id}.test.ts`);
+      const altPath = path.join(wp, '.pxml', 'tests', `${node.id}.test.py`);
+      const goPath = path.join(wp, '.pxml', 'tests', `${node.id}_test.go`);
+
+      let foundTest = false;
+      for (const tp of [testPath, altPath, goPath]) {
+        if (fs.existsSync(tp)) {
+          foundTest = true;
+          try {
+            const stack = project.stack || 'nextjs';
+            let cmd: string;
+            if (stack === 'python') cmd = `python -m pytest ${tp} -v`;
+            else if (stack === 'go') cmd = `go test -run Test ${path.dirname(tp)}`;
+            else cmd = `npx vitest run ${tp}`;
+            execSync(cmd, { cwd: wp, stdio: 'pipe', timeout: 60000 });
+            passed++;
+            broadcast({ type: 'autotest:node:done', nodeId: node.id, passed: true, message: `Tests passed (${stack})` });
+          } catch {
+            failed++;
+            broadcast({ type: 'autotest:node:error', nodeId: node.id, message: 'Tests failed' });
+          }
+          break;
+        }
+      }
+      if (!foundTest) {
+        failed++;
+        broadcast({ type: 'autotest:node:error', nodeId: node.id, message: 'No test file found' });
+      }
+    }
+
+    broadcast({ type: 'autotest:done', passed, failed, total: testableNodes.length,
+      message: `${passed}/${passed + failed} passed` });
+  } catch (e: any) {
+    broadcast({ type: 'autotest:error', message: e.message });
+  }
 });
 
 const PORT = process.env.PORT || 3001;
