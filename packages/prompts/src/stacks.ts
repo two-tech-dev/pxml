@@ -43,7 +43,9 @@ CRITICAL: Use modern C++ standards (C++17/20), handle memory management correctl
   return {
     systemPrompt: `You are an expert software engineer generating implementation code for a node specification.
 Generate ONLY the file contents. Do not include markdown code block syntax or explanations. Only output code.
-CRITICAL: The codebase uses ES Modules (ESM). You must STRICTLY use 'import ... from ...' syntax. NEVER generate CommonJS 'require(...)' calls.`,
+CRITICAL: This is the COMPLETE file. Do NOT define the same export (GET, POST, default, etc.) more than once.
+CRITICAL: The codebase uses ES Modules (ESM). You must STRICTLY use 'import ... from ...' syntax. NEVER generate CommonJS 'require(...)' calls.
+CRITICAL: Never import from '@/*' — use relative paths only.`,
     promptNote: `Stack: JS/TS (${stack}). Ensure ES Module format.`
   };
 }

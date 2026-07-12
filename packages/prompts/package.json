@@ -1,6 +1,6 @@
 {
   "name": "@two-tech-dev/pxml-prompts",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Prompt templates for pxml AI code generation",
   "type": "module",
   "main": "dist/index.js",

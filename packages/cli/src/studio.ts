@@ -5,7 +5,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import {
   PxmlParser, validateProject, DependencyGraph, PxmlCodegen,
   addPackageToManifest, PxmlManifest, PxmlRunner, FileWriter, runFixLoop,
-  createDefaultManifest,
+  createDefaultManifest, getTestFilePath, PxmlTestgen,
 } from '@two-tech-dev/pxml-core';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -409,27 +409,34 @@ export function startStudio(port: number = 3001) {
     try {
       broadcast({ type: 'autotest:start', message: 'Auto-testing project...' });
       const project = new PxmlParser().parse(path.join(wp, 'project.xml'));
+      const stack = project.stack || 'nextjs';
       const testableNodes = (project.nodes as any[]).filter((n: any) => n.type !== 'config-file');
-      broadcast({ type: 'autotest:progress', message: `Testing ${testableNodes.length} nodes (stack: ${project.stack || 'nextjs'})...` });
+      broadcast({ type: 'autotest:progress', message: `Testing ${testableNodes.length} nodes (${stack})...` });
       let passed = 0, failed = 0;
       for (const node of testableNodes) {
         broadcast({ type: 'autotest:node:start', nodeId: node.id, message: `Testing ${node.id}...` });
-        const testPath = path.join(wp, '.pxml', 'tests', `${node.id}.test.ts`);
-        const pyPath = path.join(wp, '.pxml', 'tests', `${node.id}.test.py`);
-        const goPath = path.join(wp, '.pxml', 'tests', `${node.id}_test.go`);
-        let found = false;
-        for (const tp of [testPath, pyPath, goPath]) {
-          if (fs.existsSync(tp)) { found = true;
+        const testPath = path.join(wp, getTestFilePath(node.meta.path, stack));
+        const testAbs = path.resolve(testPath);
+        if (fs.existsSync(testAbs)) {
+          try {
+            const cmd = stack === 'python' ? `python -m pytest ${testAbs} -v` : stack === 'go' ? `go test -run Test ${path.dirname(testAbs)}` : `npx vitest run ${testAbs}`;
+            execSync(cmd, { cwd: wp, stdio: 'pipe', timeout: 60000 });
+            passed++; broadcast({ type: 'autotest:node:done', nodeId: node.id, passed: true, message: 'Tests passed' });
+          } catch { failed++; broadcast({ type: 'autotest:node:error', nodeId: node.id, message: 'Tests failed' }); }
+        } else {
+          try {
+            const testCode = PxmlTestgen.generateTestFileContent(node, testPath);
+            const testDir = path.dirname(testAbs);
+            if (!fs.existsSync(testDir)) fs.mkdirSync(testDir, { recursive: true });
+            fs.writeFileSync(testAbs, testCode, 'utf-8');
             try {
-              const stack = project.stack || 'nextjs';
-              const cmd = stack === 'python' ? `python -m pytest ${tp} -v` : stack === 'go' ? `go test -run Test ${path.dirname(tp)}` : `npx vitest run ${tp}`;
+              const cmd = stack === 'python' ? `python -m pytest ${testAbs} -v` : stack === 'go' ? `go test -run Test ${path.dirname(testAbs)}` : `npx vitest run ${testAbs}`;
               execSync(cmd, { cwd: wp, stdio: 'pipe', timeout: 60000 });
-              passed++; broadcast({ type: 'autotest:node:done', nodeId: node.id, passed: true, message: `Tests passed` });
-            } catch { failed++; broadcast({ type: 'autotest:node:error', nodeId: node.id, message: 'Tests failed' }); }
-            break;
-          }
+              passed++; broadcast({ type: 'autotest:node:done', nodeId: node.id, passed: true, message: 'Fallback test passed' });
+            } catch { failed++; broadcast({ type: 'autotest:node:error', nodeId: node.id, message: 'Fallback test failed' }); }
+            try { fs.unlinkSync(testAbs); } catch {}
+          } catch (e: any) { failed++; broadcast({ type: 'autotest:node:error', nodeId: node.id, message: e.message }); }
         }
-        if (!found) { failed++; broadcast({ type: 'autotest:node:error', nodeId: node.id, message: 'No test file found' }); }
       }
       broadcast({ type: 'autotest:done', passed, failed, total: testableNodes.length, message: `${passed}/${passed + failed} passed` });
     } catch (e: any) { broadcast({ type: 'autotest:error', message: e.message }); }

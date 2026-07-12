@@ -4,7 +4,7 @@ import http from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import {
   PxmlParser, validateProject, DependencyGraph, PxmlManifest, PxmlCache,
-  PxmlCodegen, PxmlRunner, getTestFilePath, FileWriter,
+  PxmlCodegen, PxmlRunner, getTestFilePath, FileWriter, PxmlTestgen,
   runFixLoop, runBuildLoop, syncEditorSchema, PxmlDiagnostics,
   addPackageToManifest, buildProjectContext, createDefaultManifest,
 } from '@two-tech-dev/pxml-core';
@@ -772,7 +772,8 @@ app.post('/api/auto-test', async (req, res) => {
   try {
     broadcast({ type: 'autotest:start', message: 'Auto-testing project...' });
     const project = new PxmlParser().parse(path.join(wp, 'project.xml'));
-    broadcast({ type: 'autotest:progress', message: `Stack: ${project.stack || 'nextjs'}` });
+    const stack = project.stack || 'nextjs';
+    broadcast({ type: 'autotest:progress', message: `Stack: ${stack}` });
 
     const testableNodes = (project.nodes as any[]).filter((n: any) =>
       n.type !== 'config-file');
@@ -783,33 +784,47 @@ app.post('/api/auto-test', async (req, res) => {
     for (const node of testableNodes) {
       broadcast({ type: 'autotest:node:start', nodeId: node.id, message: `Testing ${node.id}...` });
 
-      const testPath = path.join(wp, '.pxml', 'tests', `${node.id}.test.ts`);
-      const altPath = path.join(wp, '.pxml', 'tests', `${node.id}.test.py`);
-      const goPath = path.join(wp, '.pxml', 'tests', `${node.id}_test.go`);
+      const testPath = path.join(wp, getTestFilePath(node.meta.path, stack));
+      const testAbs = path.resolve(testPath);
 
-      let foundTest = false;
-      for (const tp of [testPath, altPath, goPath]) {
-        if (fs.existsSync(tp)) {
-          foundTest = true;
+      if (fs.existsSync(testAbs)) {
+        try {
+          let cmd: string;
+          if (stack === 'python') cmd = `python -m pytest ${testAbs} -v`;
+          else if (stack === 'go') cmd = `go test -run Test ${path.dirname(testAbs)}`;
+          else cmd = `npx vitest run ${testAbs}`;
+          execSync(cmd, { cwd: wp, stdio: 'pipe', timeout: 60000 });
+          passed++;
+          broadcast({ type: 'autotest:node:done', nodeId: node.id, passed: true, message: `Tests passed` });
+        } catch {
+          failed++;
+          broadcast({ type: 'autotest:node:error', nodeId: node.id, message: 'Tests failed' });
+        }
+      } else {
+        // Generate quick fallback test and run it
+        try {
+          const testCode = PxmlTestgen.generateTestFileContent(node, testAbs);
+          const testDir = path.dirname(testAbs);
+          if (!fs.existsSync(testDir)) fs.mkdirSync(testDir, { recursive: true });
+          fs.writeFileSync(testAbs, testCode, 'utf-8');
           try {
-            const stack = project.stack || 'nextjs';
             let cmd: string;
-            if (stack === 'python') cmd = `python -m pytest ${tp} -v`;
-            else if (stack === 'go') cmd = `go test -run Test ${path.dirname(tp)}`;
-            else cmd = `npx vitest run ${tp}`;
+            if (stack === 'python') cmd = `python -m pytest ${testAbs} -v`;
+            else if (stack === 'go') cmd = `go test -run Test ${path.dirname(testAbs)}`;
+            else cmd = `npx vitest run ${testAbs}`;
             execSync(cmd, { cwd: wp, stdio: 'pipe', timeout: 60000 });
             passed++;
-            broadcast({ type: 'autotest:node:done', nodeId: node.id, passed: true, message: `Tests passed (${stack})` });
+            broadcast({ type: 'autotest:node:done', nodeId: node.id, passed: true, message: 'Fallback test passed' });
           } catch {
             failed++;
-            broadcast({ type: 'autotest:node:error', nodeId: node.id, message: 'Tests failed' });
+            broadcast({ type: 'autotest:node:error', nodeId: node.id, message: 'Fallback test failed' });
           }
-          break;
+          // Clean up fallback test
+          try { fs.unlinkSync(testAbs); } catch {}
+        } catch (e: any) {
+          failed++;
+          broadcast({ type: 'autotest:node:error', nodeId: node.id, message: `No test: ${e.message}` });
         }
-      }
-      if (!foundTest) {
-        failed++;
-        broadcast({ type: 'autotest:node:error', nodeId: node.id, message: 'No test file found' });
       }
     }
 
