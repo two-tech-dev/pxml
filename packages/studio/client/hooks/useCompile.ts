@@ -153,6 +153,37 @@ export function useCompile(settings: ProviderSettings) {
         append({ type: 'error', message: `Auto-test error: ${msg.message}`, channel: 'test' });
         break;
 
+      case 'e2e:start':
+        append({ type: 'info', message: msg.message, channel: 'test' });
+        break;
+      case 'e2e:progress':
+        append({ type: 'info', message: msg.message, channel: 'test' });
+        break;
+      case 'e2e:node:start':
+        append({ type: 'info', message: `[${msg.nodeId}] ${msg.message}`, nodeId: msg.nodeId, channel: 'test' });
+        break;
+      case 'e2e:node:done':
+        append({ type: 'success', message: `[${msg.nodeId}] ✓ ${msg.message}`, nodeId: msg.nodeId, channel: 'test' });
+        break;
+      case 'e2e:node:error':
+        append({ type: 'error', message: `[${msg.nodeId}] ✗ ${msg.message}`, nodeId: msg.nodeId, channel: 'test' });
+        break;
+      case 'e2e:fix:start':
+        append({ type: 'warn', message: `[${msg.nodeId}] Auto-fixing...`, nodeId: msg.nodeId, channel: 'fix' });
+        break;
+      case 'e2e:fix:done':
+        append({ type: 'success', message: `[${msg.nodeId}] Fixed!`, nodeId: msg.nodeId, channel: 'fix' });
+        break;
+      case 'e2e:fix:error':
+        append({ type: 'error', message: `[${msg.nodeId}] Fix failed: ${msg.message}`, nodeId: msg.nodeId, channel: 'fix' });
+        break;
+      case 'e2e:done':
+        append({ type: 'info', message: `E2E Test complete: ${msg.message}`, channel: 'test' });
+        break;
+      case 'e2e:error':
+        append({ type: 'error', message: `E2E error: ${msg.message}`, channel: 'test' });
+        break;
+
       case 'console:start':
         append({ type: 'info', message: `$ ${msg.command}`, channel: 'plugin' });
         break;

@@ -5,7 +5,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import {
   PxmlParser, validateProject, DependencyGraph, PxmlCodegen,
   addPackageToManifest, PxmlManifest, PxmlRunner, FileWriter, runFixLoop,
-  createDefaultManifest, getTestFilePath, PxmlTestgen,
+  createDefaultManifest, getTestFilePath, PxmlTestgen, runBuildLoop,
 } from '@two-tech-dev/pxml-core';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -440,6 +440,56 @@ export function startStudio(port: number = 3001) {
       }
       broadcast({ type: 'autotest:done', passed, failed, total: testableNodes.length, message: `${passed}/${passed + failed} passed` });
     } catch (e: any) { broadcast({ type: 'autotest:error', message: e.message }); }
+  });
+
+  app.post('/api/e2e-test', async (req, res) => {
+    const { path: wp, provider, model, apiKey, baseUrl } = req.body as any;
+    res.json({ accepted: true });
+    try {
+      broadcast({ type: 'e2e:start', message: 'Starting E2E test...' });
+      const project = new PxmlParser().parse(path.join(wp, 'project.xml'));
+      const stack = project.stack || 'nextjs';
+      broadcast({ type: 'e2e:progress', message: 'Starting dev server...' });
+      try { execSync('npx next dev --port 3000 &', { cwd: wp, stdio: 'ignore', timeout: 8000 }); } catch {}
+      await new Promise(r => setTimeout(r, 5000));
+      const port = 3000;
+      let ready = false;
+      for (let i = 0; i < 15; i++) { try { await fetch(`http://localhost:${port}`, { signal: AbortSignal.timeout(2000) }); ready = true; break; } catch { await new Promise(r => setTimeout(r, 1000)); } }
+      if (!ready) { broadcast({ type: 'e2e:error', message: 'Dev server not ready' }); return; }
+      const testable = (project.nodes as any[]).filter((n: any) => n.type === 'api-route' || n.type === 'ui-component');
+      broadcast({ type: 'e2e:progress', message: `Testing ${testable.length} nodes...` });
+      let passed = 0, failed = 0; const failures: { nodeId: string; error: string; type: string }[] = [];
+      for (const node of testable) {
+        broadcast({ type: 'e2e:node:start', nodeId: node.id, message: `Testing ${node.id}...` });
+        await new Promise(r => setTimeout(r, 200));
+        if (node.type === 'api-route') {
+          const apiPath = node.meta.path.replace(/^app/, '').replace(/\/route\.(ts|tsx|js)$/, '');
+          try { const resp = await fetch(`http://localhost:${port}${apiPath}`, { signal: AbortSignal.timeout(5000) }); const t = await resp.text(); if (resp.status < 500) { passed++; broadcast({ type: 'e2e:node:done', nodeId: node.id, passed: true, message: `${resp.status}` }); } else { failed++; failures.push({ nodeId: node.id, error: `HTTP ${resp.status}`, type: 'api-route' }); broadcast({ type: 'e2e:node:error', nodeId: node.id, message: `HTTP ${resp.status}` }); } } catch (e: any) { failed++; failures.push({ nodeId: node.id, error: e.message, type: 'api-route' }); broadcast({ type: 'e2e:node:error', nodeId: node.id, message: e.message }); }
+        } else {
+          const pp = node.meta.path.replace(/^app/, '').replace(/\/page\.(tsx|ts)$/, '');
+          try { const resp = await fetch(`http://localhost:${port}${pp}`, { signal: AbortSignal.timeout(5000) }); const html = await resp.text(); if (resp.status === 200 && html.length > 100 && !html.includes('__nextjs_error')) { passed++; broadcast({ type: 'e2e:node:done', nodeId: node.id, passed: true, message: `${html.length}B` }); } else { failed++; failures.push({ nodeId: node.id, error: html.includes('__nextjs_error') ? 'Runtime error' : `HTTP ${resp.status}`, type: 'ui-component' }); broadcast({ type: 'e2e:node:error', nodeId: node.id, message: 'Failed' }); } } catch (e: any) { failed++; failures.push({ nodeId: node.id, error: e.message, type: 'ui-component' }); broadcast({ type: 'e2e:node:error', nodeId: node.id, message: e.message }); }
+        }
+      }
+      if (failures.length > 0 && provider && model) {
+        broadcast({ type: 'e2e:progress', message: `Auto-fixing ${failures.length} failures...` });
+        const actualKey = apiKey || (provider === 'openai' ? process.env.OPENAI_API_KEY : process.env.ANTHROPIC_API_KEY);
+        const codegen = new PxmlCodegen({ provider, apiKey: actualKey, baseUrl, model, cwd: wp });
+        const writer = new FileWriter(false, wp);
+        const runner = new PxmlRunner(wp, writer);
+        const manifest = new PxmlManifest(wp, project.name, project.version);
+        for (const f of failures) {
+          broadcast({ type: 'e2e:fix:start', nodeId: f.nodeId, message: `Fixing ${f.nodeId}...` });
+          try {
+            const node = (project.nodes as any[]).find((n: any) => n.id === f.nodeId);
+            if (!node) continue;
+            const ok = await runFixLoop(node, wp, manifest, codegen, runner, writer, undefined, f.error, true, stack);
+            if (ok) { passed++; failed--; broadcast({ type: 'e2e:fix:done', nodeId: f.nodeId, message: 'Fixed' }); }
+            else { broadcast({ type: 'e2e:fix:error', nodeId: f.nodeId, message: 'Could not fix' }); }
+          } catch (e: any) { broadcast({ type: 'e2e:fix:error', nodeId: f.nodeId, message: e.message }); }
+        }
+      }
+      broadcast({ type: 'e2e:done', passed, failed, total: testable.length, message: `E2E: ${passed} ok, ${failed} failed` });
+    } catch (e: any) { broadcast({ type: 'e2e:error', message: e.message }); }
   });
 
   server.listen(port, () => {

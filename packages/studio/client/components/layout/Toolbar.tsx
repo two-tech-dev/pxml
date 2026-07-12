@@ -80,6 +80,12 @@ export function Toolbar() {
     append({type:'info',message:'Starting auto-test...',channel:'test'});
     await fetch('/api/auto-test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:workspacePath})});
   }
+  async function runE2ETest() {
+    if(!workspacePath) return;
+    append({type:'info',message:'Starting E2E test — AI will open web-app, verify pages/APIs, auto-fix failures...',channel:'test'});
+    await fetch('/api/e2e-test',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({path:workspacePath,provider:settings.provider,model:settings.model,apiKey:settings.apiKey,baseUrl:settings.baseUrl})});
+  }
 
   const cost = costSummary ? `$${((costSummary.inputTokens*0.000003)+(costSummary.outputTokens*0.000015)).toFixed(3)}` : null;
 
@@ -152,6 +158,10 @@ export function Toolbar() {
           onMouseEnter={e => { e.currentTarget.style.background = '#1c1c1c'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
         ><I Icon={Icons.flask} /><I Icon={Icons.play} size={10} /> Auto Test</button>
+        <button onClick={runE2ETest} disabled={!workspacePath} style={B()}
+          onMouseEnter={e => { e.currentTarget.style.background = '#1c1c1c'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+        ><I Icon={Icons.monitor} /> E2E+AI Fix</button>
         <button onClick={resetLayout} style={B()}
           onMouseEnter={e => { e.currentTarget.style.background = '#1c1c1c'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}

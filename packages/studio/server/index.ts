@@ -765,6 +765,144 @@ app.post('/api/console/exec', (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+app.post('/api/e2e-test', async (req, res) => {
+  const { path: wp, provider, model, apiKey, baseUrl } = req.body as any;
+  res.json({ accepted: true });
+
+  try {
+    broadcast({ type: 'e2e:start', message: 'Starting E2E test...' });
+    const project = new PxmlParser().parse(path.join(wp, 'project.xml'));
+    const stack = project.stack || 'nextjs';
+
+    // Start dev server
+    broadcast({ type: 'e2e:progress', message: 'Starting dev server...' });
+    let devProcess: any = null;
+    try {
+      const startCmd = stack === 'python' ? 'python -m flask run --port 3000 &' : 'npx next dev --port 3000 &';
+      devProcess = execSync(startCmd, { cwd: wp, stdio: 'ignore', timeout: 10000 });
+    } catch {}
+    // Wait for server
+    await new Promise(r => setTimeout(r, 5000));
+
+    // Find the dev server port
+    const port = 3000;
+    let serverReady = false;
+    for (let i = 0; i < 20; i++) {
+      try {
+        await fetch(`http://localhost:${port}`, { signal: AbortSignal.timeout(2000) });
+        serverReady = true;
+        break;
+      } catch { await new Promise(r => setTimeout(r, 1000)); }
+    }
+
+    if (!serverReady) {
+      broadcast({ type: 'e2e:error', message: 'Dev server did not start. Run the project manually first.' });
+      return;
+    }
+
+    broadcast({ type: 'e2e:progress', message: `Dev server ready on port ${port}` });
+
+    const testableNodes = (project.nodes as any[]).filter((n: any) =>
+      n.type === 'api-route' || n.type === 'ui-component');
+    broadcast({ type: 'e2e:progress', message: `Testing ${testableNodes.length} nodes...` });
+
+    let passed = 0, failed = 0;
+    const failures: { nodeId: string; error: string; type: string }[] = [];
+
+    for (const node of testableNodes) {
+      broadcast({ type: 'e2e:node:start', nodeId: node.id, message: `Testing ${node.id}...` });
+      await new Promise(r => setTimeout(r, 200));
+
+      if (node.type === 'api-route') {
+        const apiPath = node.meta.path.replace(/^app/, '').replace(/\/route\.(ts|tsx|js|py|go)$/, '');
+        const url = `http://localhost:${port}${apiPath}`;
+        try {
+          const resp = await fetch(url, { signal: AbortSignal.timeout(5000) });
+          const text = await resp.text();
+          if (resp.status >= 200 && resp.status < 500) {
+            passed++;
+            broadcast({ type: 'e2e:node:done', nodeId: node.id, passed: true, message: `GET ${url} → ${resp.status} (${text.length}B)` });
+          } else {
+            failed++;
+            const err = `HTTP ${resp.status}: ${text.slice(0, 200)}`;
+            failures.push({ nodeId: node.id, error: err, type: 'api-route' });
+            broadcast({ type: 'e2e:node:error', nodeId: node.id, message: err });
+          }
+        } catch (e: any) {
+          failed++;
+          failures.push({ nodeId: node.id, error: e.message, type: 'api-route' });
+          broadcast({ type: 'e2e:node:error', nodeId: node.id, message: e.message });
+        }
+      } else if (node.type === 'ui-component') {
+        const pagePath = node.meta.path.replace(/^app/, '').replace(/\/page\.(tsx|ts|jsx|js)$/, '');
+        const url = `http://localhost:${port}${pagePath}`;
+        try {
+          const resp = await fetch(url, { signal: AbortSignal.timeout(5000) });
+          const html = await resp.text();
+          if (resp.status === 200 && html.length > 100) {
+            // Check for common React/Next.js error markers
+            const hasRuntimeError = html.includes('__nextjs_error') || html.includes('Error:') || html.includes('Unhandled Runtime Error');
+            if (hasRuntimeError) {
+              failed++;
+              failures.push({ nodeId: node.id, error: 'Runtime error detected on page', type: 'ui-component' });
+              broadcast({ type: 'e2e:node:error', nodeId: node.id, message: 'Runtime error on page' });
+            } else {
+              passed++;
+              broadcast({ type: 'e2e:node:done', nodeId: node.id, passed: true, message: `Page loaded: ${html.length}B` });
+            }
+          } else {
+            failed++;
+            const err = `HTTP ${resp.status}${html.length < 100 ? ': page empty' : ''}`;
+            failures.push({ nodeId: node.id, error: err, type: 'ui-component' });
+            broadcast({ type: 'e2e:node:error', nodeId: node.id, message: err });
+          }
+        } catch (e: any) {
+          failed++;
+          failures.push({ nodeId: node.id, error: e.message, type: 'ui-component' });
+          broadcast({ type: 'e2e:node:error', nodeId: node.id, message: e.message });
+        }
+      }
+    }
+
+    // AI Analysis & Auto-fix for failures
+    if (failures.length > 0 && provider && model) {
+      broadcast({ type: 'e2e:progress', message: `${failures.length} failures — running AI analysis & auto-fix...` });
+      const actualKey = apiKey || (provider === 'openai' ? process.env.OPENAI_API_KEY : process.env.ANTHROPIC_API_KEY);
+      const codegen = new PxmlCodegen({ provider, apiKey: actualKey, baseUrl, model, cwd: wp });
+      const writer = new FileWriter(false, wp);
+      const runner = new PxmlRunner(wp, writer);
+      const manifest = new PxmlManifest(wp, project.name, project.version);
+
+      for (const f of failures) {
+        broadcast({ type: 'e2e:fix:start', nodeId: f.nodeId, message: `Auto-fixing ${f.nodeId}...` });
+        try {
+          const node = (project.nodes as any[]).find((n: any) => n.id === f.nodeId);
+          if (!node) continue;
+          const success = await runFixLoop(
+            node, wp, manifest, codegen, runner, writer,
+            undefined, f.error, true, stack,
+          );
+          if (success) {
+            passed++; failed--;
+            broadcast({ type: 'e2e:fix:done', nodeId: f.nodeId, message: `Fixed: ${f.nodeId}` });
+          } else {
+            broadcast({ type: 'e2e:fix:error', nodeId: f.nodeId, message: `Could not fix: ${f.nodeId}` });
+          }
+        } catch (e: any) {
+          broadcast({ type: 'e2e:fix:error', nodeId: f.nodeId, message: e.message });
+        }
+      }
+    } else if (failures.length > 0) {
+      broadcast({ type: 'e2e:progress', message: `${failures.length} failures — configure AI provider to auto-fix` });
+    }
+
+    broadcast({ type: 'e2e:done', passed, failed, total: testableNodes.length,
+      message: `E2E complete: ${passed} passed, ${failed} failed` });
+  } catch (e: any) {
+    broadcast({ type: 'e2e:error', message: e.message });
+  }
+});
+
 app.post('/api/auto-test', async (req, res) => {
   const { path: wp } = req.body as any;
   res.json({ accepted: true });
